@@ -1,0 +1,51 @@
+{
+    "name": "telecord",
+    "version": "0.0.0",
+    "private": true,
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "with-env": "dotenv -e .env --",
+        "build": "turbo run build",
+        "dev": "pnpm with-env turbo run dev --parallel",
+        "watch": "pnpm with-env turbo watch",
+        "clean": "turbo clean && rm -rf node_modules/ .turbo/ dist/",
+        "format": "prettier --write \"**/*.{ts,md}\"",
+        "db:pull": "pnpm with-env turbo run db:pull --filter db",
+        "db:generate": "pnpm with-env turbo run db:generate"
+    },
+    "devDependencies": {
+        "@commitlint/config-conventional": "^17.4.4",
+        "dotenv-cli": "latest",
+        "prettier": "latest",
+        "turbo": "latest"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "dependencies": {
+        "@types/node": "^18.14.6",
+        "typescript": "^4.9.5"
+    },
+    "packageManager": "pnpm@7.5.2",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/anuragkumar19/telecord-backend.git"
+    },
+    "keywords": [
+        "node",
+        "fastify",
+        "chat-app",
+        "trpc",
+        "prisma",
+        "mongodb"
+    ],
+    "author": "Anurag Kumar <https://github.com/anuragkumar19>",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/anuragkumar19/telecord-backend/issues"
+    },
+    "homepage": "https://github.com/anuragkumar19/telecord-backend#readme"
+}

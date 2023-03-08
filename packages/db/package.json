@@ -1,0 +1,23 @@
+{
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "name": "@telecord/db",
+    "version": "1.0.0",
+    "description": "Prisma+MongoDB",
+    "main": "./dist/index.js",
+    "types": "./src/index.ts",
+    "scripts": {
+        "watch": "tsc -w",
+        "build": "tsc",
+        "db:pull": "prisma db pull",
+        "clean": "rm -rf .turbo/ node_modules/ dist/",
+        "db:generate": "prisma generate",
+        "db:push": "prisma db push --skip-generate",
+        "dev": "prisma studio --port 5556"
+    },
+    "devDependencies": {
+        "prisma": "^4.11.0"
+    },
+    "dependencies": {
+        "@prisma/client": "^4.11.0"
+    }
+}

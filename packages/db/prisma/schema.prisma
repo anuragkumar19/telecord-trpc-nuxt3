@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGO_URI")
+}
+
+enum WhoCanSee {
+  EVERYONE
+  FRIENDS
+  NOBODY
+}
+
+enum WhoCanSend {
+  EVERYONE
+  FRIENDS
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now()) @db.Date
+  updatedAt DateTime @updatedAt @db.Date
+
+  name            String
+  email           String  @unique(map: "email_1")
+  username        String  @unique(map: "username_1")
+  avatar          String  @default("https://upload.wikimedia.org/wikipedia/commons/9/99/Sample_User_Icon.png") // Use Custom Models to set form env variable
+  bio             String  @default("")
+  password        String
+  isEmailVerified Boolean @default(false)
+  otp             String?
+  otpExpiry       Float?
+
+  secondaryEmail           String?
+  isSecondaryEmailVerified Boolean? @default(false)
+  secondaryEmailOtp        String?
+  secondaryEmailOtpExpiry  Float?
+
+  lastSeen DateTime? @db.Date
+
+  whoCanSeeActiveStatus WhoCanSee  @default(FRIENDS)
+  whoCanSeeAvatar       WhoCanSee  @default(EVERYONE)
+  whoCanSeeBio          WhoCanSee  @default(EVERYONE)
+  whoCanSeeFriendsList  WhoCanSee  @default(FRIENDS)
+  whoCanSeeLastSeen     WhoCanSee  @default(FRIENDS)
+  whoCanSeeStatus       WhoCanSee  @default(FRIENDS)
+  whoCanSendYouMessage  WhoCanSend @default(FRIENDS)
+
+  blockedIds   String[] @db.ObjectId
+  blocked      User[]   @relation("BlockedUser", fields: [blockedIds], references: [id])
+  blockedByIds String[] @db.ObjectId
+  blockedBy    User[]   @relation("BlockedUser", fields: [blockedByIds], references: [id])
+
+  receivedFriendRequestsIds String[] @db.ObjectId
+  receivedFriendRequests    User[]   @relation("FriendRequests", fields: [receivedFriendRequestsIds], references: [id])
+  sentFriendRequestsIds     String[] @db.ObjectId
+  sentFriedRequests         User[]   @relation("FriendRequests", fields: [sentFriendRequestsIds], references: [id])
+
+  friendsIds  String[] @db.ObjectId
+  friends     User[]   @relation("Friends", fields: [friendsIds], references: [id])
+  friendOfIds String[] @db.ObjectId
+  friendOf    User[]   @relation("Friends", fields: [friendOfIds], references: [id])
+
+  @@map("users")
+}
+
+// model media {
+//   id        String @id @default(auto()) @map("_id") @db.ObjectId
+//   /// Field referred in an index, but found no data to define the type.
+//   createdAt Json?
+
+//   @@index([createdAt], map: "createdAt_1")
+// }
+
+// model messages {
+//   id String @id @default(auto()) @map("_id") @db.ObjectId
+// }
+
+// model status {
+//   id        String   @id @default(auto()) @map("_id") @db.ObjectId
+//   v         Int      @map("__v")
+//   caption   String
+//   createdAt DateTime @db.Date
+//   media     String
+//   mediaType String
+//   /// Could not determine type: the field only had null or empty values in the sample set.
+//   seenBy    Json?
+//   updatedAt DateTime @db.Date
+//   user      String   @db.ObjectId
+
+//   @@index([createdAt], map: "createdAt_1")
+// }
+
+// model threads {
+//   id         String @id @default(auto()) @map("_id") @db.ObjectId
+//   /// Field referred in an index, but found no data to define the type.
+//   identifier Json?  @unique(map: "identifier_1")
+// }
