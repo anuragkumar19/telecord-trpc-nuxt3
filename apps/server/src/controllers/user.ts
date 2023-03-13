@@ -1,116 +1,274 @@
-// import crypto from 'crypto'
-// import { prisma, User } from '@telecord/db'
-import { User } from '@telecord/db'
-// import { SendOtpType } from '../constants'
-// import { sendOtp } from '../services/email'
-// import { genOtp } from '../utils/otp'
-
+import crypto from 'crypto'
+import { prisma, User } from '@telecord/db'
+import { sendOtp } from '../services/email'
+import { genOtp } from '../utils/otp'
 import {
-    // mapUser,
-    // isBlockedByHim,
-    // isBlockedByMe,
-    // isFriend,
-    // isInReceivedFriendRequests,
-    // isInSentFriendRequest,
+    mapUser,
+    isBlockedByHim,
+    isBlockedByMe,
+    isFriend,
+    isInReceivedFriendRequests,
+    isInSentFriendRequest,
     mapMe,
+    comparePassword,
+    hashPassword,
 } from '../utils/user'
+import { ControllerError } from '../error'
+import { accountPrivacySchema } from '../schema/zod'
 
 export const getLoggedInUser = (user: User) => {
     return mapMe(user)
 }
 
-// export const getFriendsDetail = expressAsyncHandler(async (req, res) => {
-//     const user = await User.findById(req.user!._id)
-//         .populate('friends')
-//         .populate('friendRequests')
-//         .populate('sentFriendRequests')
+export const getFriendsDetail = async (userId: string) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+            id: true,
+            friendsIds: true,
+            blockedIds: true,
+            sentFriendRequestsIds: true,
+            receivedFriendRequestsIds: true,
+            friends: {
+                select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    bio: true,
+                    avatar: true,
+                    lastSeen: true,
+                    whoCanSeeAvatar: true,
+                    whoCanSendYouMessage: true,
+                    whoCanSeeBio: true,
+                    whoCanSeeLastSeen: true,
+                },
+            },
+            sentFriendRequests: {
+                select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    bio: true,
+                    avatar: true,
+                    lastSeen: true,
+                    whoCanSeeAvatar: true,
+                    whoCanSendYouMessage: true,
+                    whoCanSeeBio: true,
+                    whoCanSeeLastSeen: true,
+                },
+            },
+            receivedFriendRequests: {
+                select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    bio: true,
+                    avatar: true,
+                    lastSeen: true,
+                    whoCanSeeAvatar: true,
+                    whoCanSendYouMessage: true,
+                    whoCanSeeBio: true,
+                    whoCanSeeLastSeen: true,
+                },
+            },
+        },
+    })
 
-//     if (!user) {
-//         res.status(400)
-//         throw new Error('Something went wrong.')
-//     }
+    if (!user) {
+        throw new ControllerError({
+            code: 'NOT_FOUND',
+            message: 'Something went wrong',
+        })
+    }
 
-//     const friends = user.friends.map((f) => getSendableUser(f, req.user!))
-//     const friendRequests = user.friendRequests.map((f) =>
-//         getSendableUser(f, req.user!)
-//     )
-//     const sentFriendRequests = user.sentFriendRequests.map((f) =>
-//         getSendableUser(f, req.user!)
-//     )
+    const friends = user.friends.map((f) => mapUser(user, f))
+    const friendRequests = user.receivedFriendRequests.map((f) =>
+        mapUser(user, f)
+    )
+    const sentFriendRequests = user.sentFriendRequests.map((f) =>
+        mapUser(user, f)
+    )
 
-//     res.status(200).json({
-//         friends,
-//         friendRequests,
-//         sentFriendRequests,
-//     })
-// })
+    return {
+        friends,
+        friendRequests,
+        sentFriendRequests,
+    }
+}
 
-// export const updateName = expressAsyncHandler(async (req, res) => {
-//     const user = req.user!
+export const getUser = async <
+    U extends {
+        id: string
+        friendsIds: string[]
+        receivedFriendRequestsIds: string[]
+        sentFriendRequestsIds: string[]
+        blockedIds: string[]
+        blockedByIds: string[]
+    }
+>(
+    user: U,
+    id: string
+) => {
+    const searchUser = await prisma.user.findUnique({ where: { id } })
 
-//     user.name = req.body.name
-//     await user.save()
+    if (
+        !searchUser ||
+        !searchUser.isEmailVerified ||
+        isBlockedByHim(user, searchUser)
+    ) {
+        throw new ControllerError({
+            code: 'NOT_FOUND',
+            message: 'User not found.',
+        })
+    }
 
-//     res.status(200).json({
-//         message: 'Name updated',
-//     })
-// })
+    return {
+        user: mapUser(user, searchUser),
+    }
+}
 
-// export const updateUsername = expressAsyncHandler(async (req, res) => {
-//     const user = req.user!
+export const searchUser = async <
+    U extends {
+        id: string
+        friendsIds: string[]
+        receivedFriendRequestsIds: string[]
+        sentFriendRequestsIds: string[]
+        blockedIds: string[]
+        blockedByIds: string[]
+    }
+>(
+    user: U,
+    limit = 10,
+    cursor: string,
+    query: string
+) => {
+    if (query === '') {
+        return {
+            users: [],
+        }
+    }
 
-//     const { username } = req.body
+    let users = await prisma.user.findMany({
+        where: {
+            OR: [
+                { username: { contains: query } },
+                { name: { contains: query } },
+            ],
+        },
+        orderBy: {
+            id: 'asc',
+        },
+        take: limit,
+        skip: 1,
+        cursor: {
+            id: cursor,
+        },
+        select: {
+            id: true,
+            name: true,
+            username: true,
+            bio: true,
+            avatar: true,
+            lastSeen: true,
+            whoCanSeeAvatar: true,
+            whoCanSeeBio: true,
+            whoCanSendYouMessage: true,
+            whoCanSeeLastSeen: true,
+        },
+    })
 
-//     if (user.username === username) {
-//         res.status(400)
-//         throw new Error('Username is same as current username')
-//     }
+    users = users.filter((u) => !isBlockedByHim(user, u))
 
-//     const existingUser = await User.findOne({ username })
+    return {
+        users: users.map((u) => mapUser(user, u)),
+    }
+}
 
-//     if (existingUser) {
-//         res.status(400)
-//         throw new Error('Username is already taken')
-//     }
+export const updateName = async (
+    userId: string,
+    { name }: { name: string }
+) => {
+    try {
+        await prisma.user.update({
+            where: { id: userId },
+            data: { name: name },
+        })
+    } catch (err) {
+        throw new ControllerError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Something went wrong',
+        })
+    }
 
-//     user.username = username
+    return {
+        message: 'Name updated',
+    }
+}
 
-//     await user.save()
+export const updateUsername = async <
+    U extends { id: string; username: string }
+>(
+    user: U,
+    { username }: { username: string }
+) => {
+    if (user.username === username) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Username is same as current username',
+        })
+    }
 
-//     res.status(200).json({
-//         message: 'Username updated',
-//     })
-// })
+    const existingUser = await prisma.user.findUnique({ where: { username } })
 
-// export const updateBio = expressAsyncHandler(async (req, res) => {
-//     const user = req.user!
+    if (existingUser) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Username is already taken',
+        })
+    }
 
-//     user.bio = req.body.bio
-//     await user.save()
+    await prisma.user.update({ where: { id: user.id }, data: { username } })
 
-//     res.status(200).json({
-//         message: 'Bio updated',
-//     })
-// })
+    return {
+        message: 'Username updated',
+    }
+}
 
-// export const updatePassword = expressAsyncHandler(async (req, res) => {
-//     const user = req.user!
+export const updateBio = async <U extends { id: string }>(
+    user: U,
+    { bio }: { bio: string }
+) => {
+    await prisma.user.update({ where: { id: user.id }, data: { bio } })
 
-//     const { oldPassword, newPassword } = req.body
+    return {
+        message: 'Bio updated',
+    }
+}
 
-//     if (!user.comparePassword(oldPassword)) {
-//         res.status(400)
-//         throw new Error('Incorrect password')
-//     }
+export const updatePassword = async <
+    U extends { id: string; password: string }
+>(
+    user: U,
+    { oldPassword, newPassword }: { oldPassword: string; newPassword: string }
+) => {
+    if (comparePassword(user.password, oldPassword)) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Incorrect Old password',
+        })
+    }
 
-//     user.password = newPassword
+    const newHashedPassword = hashPassword(newPassword)
 
-//     await user.save()
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { password: newHashedPassword },
+    })
 
-//     res.status(200).json({
-//         message: 'Password updated',
-//     })
-// })
+    return {
+        message: 'Password updated',
+    }
+}
 
 // export const uploadAvatar = expressAsyncHandler(async (req, res) => {
 //     const user = req.user!
@@ -130,533 +288,720 @@ export const getLoggedInUser = (user: User) => {
 //     })
 // })
 
-// export const addSecondaryEmail = expressAsyncHandler(async (req, res) => {
-//     const user = req.user!
-
-//     const { email } = req.body
-
-//     if (email === user.email) {
-//         res.status(400)
-//         throw new Error('Email is same as current email')
-//     }
-
-//     if (user.secondaryEmail) {
-//         res.status(400)
-//         throw new Error('Secondary email already exists')
-//     }
-
-//     const existingUser = await User.findOne({ email })
-
-//     if (existingUser) {
-//         res.status(400)
-//         throw new Error('Email is already taken')
-//     }
-
-//     user.secondaryEmail = email
-
-//     await user.save()
-
-//     res.status(200).json({
-//         message: 'Secondary email added',
-//     })
-// })
-
-// export const removeSecondaryEmail = expressAsyncHandler(async (req, res) => {
-//     const user = req.user!
-
-//     if (!user.secondaryEmail) {
-//         res.status(400)
-//         throw new Error('Secondary email does not exist')
-//     }
-
-//     user.secondaryEmail = undefined
-//     user.isSecondaryEmailVerified = false
-
-//     await user.save()
-
-//     res.status(200).json({
-//         message: 'Secondary email removed',
-//     })
-// })
-
-// export const updateSecondaryEmail = expressAsyncHandler(async (req, res) => {
-//     const user = req.user!
-
-//     if (!user.secondaryEmail) {
-//         res.status(400)
-//         throw new Error('Secondary email does not exist')
-//     }
-
-//     const { email } = req.body
-
-//     if (email === user.email) {
-//         res.status(400)
-//         throw new Error('Email is same as current email')
-//     }
-
-//     if (email === user.secondaryEmail) {
-//         res.status(400)
-//         throw new Error('Email is same as secondary email')
-//     }
-
-//     const existingUser = await User.findOne({ email })
-
-//     if (existingUser) {
-//         res.status(400)
-//         throw new Error('Email is already taken')
-//     }
-
-//     user.secondaryEmail = email
-//     user.isSecondaryEmailVerified = false
-
-//     await user.save()
-
-//     res.status(200).json({
-//         message: 'Secondary email updated',
-//     })
-// })
-
-// export const getOtpForSecondaryEmail = expressAsyncHandler(async (req, res) => {
-//     const user = req.user!
-
-//     if (!user.secondaryEmail) {
-//         res.status(400)
-//         throw new Error('Secondary email does not exist')
-//     }
-
-//     if (user.isSecondaryEmailVerified) {
-//         res.status(400)
-//         throw new Error('Secondary email is already verified')
-//     }
-
-//     const otp = genOtp()
-
-//     user.secondaryEmailOtp = crypto
-//         .createHash('sha256')
-//         .update(otp.toString())
-//         .digest('hex')
-//     user.secondaryEmailOtpExpiry = Date.now() + 1000 * 60 * 5 // 5 minutes
-
-//     await user.save()
-
-//     await sendOtp(user.secondaryEmail, otp, SendOtpType.VERIFY_SECONDARY_EMAIL)
-
-//     res.status(200).json({
-//         message: 'OTP sent',
-//     })
-// })
-
-// export const verifySecondaryEmail = expressAsyncHandler(async (req, res) => {
-//     const user = req.user!
-
-//     if (!user.secondaryEmail) {
-//         res.status(400)
-//         throw new Error('Secondary email does not exist')
-//     }
-
-//     if (user.isSecondaryEmailVerified) {
-//         res.status(400)
-//         throw new Error('Secondary email is already verified')
-//     }
-
-//     if (!user.secondaryEmailOtp || !user.secondaryEmailOtpExpiry) {
-//         res.status(400)
-//         throw new Error('OTP is not requested')
-//     }
-
-//     if (Date.now() > user.secondaryEmailOtpExpiry) {
-//         res.status(400)
-//         throw new Error('OTP has expired')
-//     }
-
-//     const hashedOtp = crypto
-//         .createHash('sha256')
-//         .update(req.body.otp.toString())
-//         .digest('hex')
-
-//     if (hashedOtp !== user.secondaryEmailOtp) {
-//         res.status(400)
-//         throw new Error('OTP is incorrect')
-//     }
-
-//     user.isSecondaryEmailVerified = true
-//     user.secondaryEmailOtp = undefined
-//     user.secondaryEmailOtpExpiry = undefined
-
-//     await user.save()
-
-//     res.status(200).json({
-//         message: 'Secondary email verified',
-//     })
-// })
-
-// export const makeSecondaryEmailPrimary = expressAsyncHandler(
-//     async (req, res) => {
-//         const user = req.user!
-
-//         if (!user.secondaryEmail) {
-//             res.status(400)
-//             throw new Error('Secondary email does not exist')
-//         }
-
-//         if (!user.isSecondaryEmailVerified) {
-//             res.status(400)
-//             throw new Error('Secondary email is not verified')
-//         }
-
-//         const primaryEmail = user.email
-
-//         user.email = user.secondaryEmail
-
-//         user.secondaryEmail = primaryEmail
-
-//         await user.save()
-
-//         res.status(200).json({
-//             message: 'Secondary email made primary',
-//         })
-//     }
-// )
-
-// export const sendOrAcceptRequest = expressAsyncHandler(async (req, res) => {
-//     const { id } = req.params
-
-//     const user = req.user!
-
-//     const friend = await User.findById(id)
-
-//     if (!friend || !friend.isEmailVerified) {
-//         res.status(404)
-//         throw new Error('User not found')
-//     }
-
-//     if (user._id.equals(friend._id)) {
-//         res.status(400)
-//         throw new Error('You can not add yourself as a friend')
-//     }
-
-//     // If the friend have blocked you
-//     if (isBlockedByHim(user, friend)) {
-//         res.status(404)
-//         throw new Error('User not found')
-//     }
-
-//     // If you have blocked him
-//     if (isBlockedByMe(user, friend)) {
-//         res.status(400)
-//         throw new Error(
-//             'You have blocked this user. You have to unblock him before sending friend request'
-//         )
-//     }
-
-//     // Check if already friend
-//     if (isFriend(user, friend)) {
-//         res.status(400)
-//         throw new Error('Already friends')
-//     }
-
-//     // Check if friend request already sent
-//     if (isInSentFriendRequest(user, friend)) {
-//         res.status(400)
-//         throw new Error('Already sent friend request')
-//     }
-
-//     // If request pending then accept
-//     if (isInFriendRequest(user, friend)) {
-//         user.friendRequests = user.friendRequests.filter(
-//             (f) => !friend._id.equals(f as mongoose.Types.ObjectId)
-//         ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//         friend.sentFriendRequests = friend.sentFriendRequests.filter(
-//             (f) => !user._id.equals(f as mongoose.Types.ObjectId)
-//         ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//         user.friends = [
-//             ...user.friends,
-//             friend._id,
-//         ] as mongoose.Types.Array<mongoose.Types.ObjectId>
-//         friend.friends = [
-//             ...friend.friends,
-//             user._id,
-//         ] as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//         await user.save()
-//         await friend.save()
-
-//         res.status(200).json({
-//             message: 'Friend request accepted',
-//         })
-//         return
-//     }
-
-//     // Else Send the request
-//     friend.friendRequests.push(user._id)
-//     user.sentFriendRequests.push(friend._id)
-
-//     await user.save()
-//     await friend.save()
-
-//     res.status(200).json({ message: 'Friend Request sent.' })
-// })
-
-// export const unfriendOrCancelFriendRequest = expressAsyncHandler(
-//     async (req, res) => {
-//         const { id } = req.params
-
-//         const user = req.user!
-
-//         const friend = await User.findById(id)
-
-//         if (!friend || !friend.isEmailVerified) {
-//             res.status(404)
-//             throw new Error('User not found')
-//         }
-
-//         if (user._id.equals(friend._id)) {
-//             res.status(400)
-//             throw new Error('You can not add yourself as a friend')
-//         }
-
-//         // If the friend have blocked you
-//         if (isBlockedByHim(user, friend)) {
-//             res.status(404)
-//             throw new Error('User not found')
-//         }
-
-//         // If you have blocked friend
-//         if (isBlockedByMe(user, friend)) {
-//             res.status(400)
-//             throw new Error(
-//                 'You have blocked this user. You have to unblock him before sending friend request'
-//             )
-//         }
-
-//         // Check if friend
-//         if (isFriend(user, friend)) {
-//             user.friends = user.friends.filter(
-//                 (f) => !friend._id.equals(f as mongoose.Types.ObjectId)
-//             ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//             friend.friends = friend.friends.filter(
-//                 (f) => !user._id.equals(f as mongoose.Types.ObjectId)
-//             ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//             await user.save()
-//             await friend.save()
-
-//             res.status(200).json({
-//                 message: 'Unfriended',
-//             })
-//             return
-//         }
-
-//         // Check if friend request already sent
-//         if (isInSentFriendRequest(user, friend)) {
-//             user.sentFriendRequests = user.sentFriendRequests.filter(
-//                 (f) => !friend._id.equals(f as mongoose.Types.ObjectId)
-//             ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//             friend.friendRequests = friend.friendRequests.filter(
-//                 (f) => !user._id.equals(f as mongoose.Types.ObjectId)
-//             ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//             await user.save()
-//             await friend.save()
-
-//             res.status(200).json({
-//                 message: 'Friend request cancelled',
-//             })
-//             return
-//         }
-
-//         // Check if friend request received
-//         if (isInFriendRequest(user, friend)) {
-//             user.friendRequests = user.friendRequests.filter(
-//                 (f) => !friend._id.equals(f as mongoose.Types.ObjectId)
-//             ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//             friend.sentFriendRequests = friend.sentFriendRequests.filter(
-//                 (f) => !user._id.equals(f as mongoose.Types.ObjectId)
-//             ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//             await user.save()
-//             await friend.save()
-
-//             res.status(200).json({
-//                 message: 'Friend request rejected',
-//             })
-//             return
-//         }
-
-//         res.status(400)
-//         throw new Error('Requested action cannot be performed')
-//     }
-// )
-
-// export const blockUser = expressAsyncHandler(async (req, res) => {
-//     const { id } = req.params
-
-//     const user = req.user!
-//     const userToBeBlocked = await User.findById(id)
-
-//     if (!userToBeBlocked || !userToBeBlocked.isEmailVerified) {
-//         res.status(404)
-//         throw new Error('User not found')
-//     }
-
-//     if (isBlockedByMe(user, userToBeBlocked)) {
-//         res.status(400)
-//         throw new Error('User Already Blocked')
-//     }
-
-//     user.blocked.push(userToBeBlocked._id)
-
-//     if (isInSentFriendRequest(user, userToBeBlocked)) {
-//         user.sentFriendRequests = user.sentFriendRequests.filter(
-//             (f) => !userToBeBlocked._id.equals(f as mongoose.Types.ObjectId)
-//         ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//         userToBeBlocked.friendRequests = userToBeBlocked.friendRequests.filter(
-//             (f) => !user._id.equals(f as mongoose.Types.ObjectId)
-//         ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//         await userToBeBlocked.save()
-//     }
-
-//     if (isInFriendRequest(user, userToBeBlocked)) {
-//         user.friendRequests = user.friendRequests.filter(
-//             (f) => !userToBeBlocked._id.equals(f as mongoose.Types.ObjectId)
-//         ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//         userToBeBlocked.sentFriendRequests =
-//             userToBeBlocked.sentFriendRequests.filter(
-//                 (f) => !user._id.equals(f as mongoose.Types.ObjectId)
-//             ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//         await userToBeBlocked.save()
-//     }
-
-//     if (isFriend(user, userToBeBlocked)) {
-//         user.friends = user.friends.filter(
-//             (f) => !userToBeBlocked._id.equals(f as mongoose.Types.ObjectId)
-//         ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//         userToBeBlocked.friends = userToBeBlocked.friends.filter(
-//             (f) => !user._id.equals(f as mongoose.Types.ObjectId)
-//         ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//         await userToBeBlocked.save()
-//     }
-
-//     await user.save()
-//     res.status(200).json({
-//         message: 'User blocked',
-//     })
-// })
-
-// export const unblockUser = expressAsyncHandler(async (req, res) => {
-//     const { id } = req.params
-
-//     const user = req.user!
-//     const blockedUser = await User.findById(id)
-
-//     if (!blockedUser || !blockedUser.isEmailVerified) {
-//         res.status(404)
-//         throw new Error('User not found')
-//     }
-
-//     if (isBlockedByMe(user, blockedUser)) {
-//         user.blocked = user.blocked.filter(
-//             (u) => !blockedUser._id.equals(u as mongoose.Types.ObjectId)
-//         ) as mongoose.Types.Array<mongoose.Types.ObjectId>
-
-//         await user.save()
-//         res.status(200).json({
-//             message: 'User unblocked.',
-//         })
-//         return
-//     }
-
-//     res.status(400)
-//     throw new Error('User not blocked yet.')
-// })
-
-// export const updateAccountPrivacy = expressAsyncHandler(async (req, res) => {
-//     await User.findByIdAndUpdate(req.user!._id, { ...req.body })
-
-//     res.status(200).json({
-//         message: 'Saved',
-//     })
-// })
-
-// export const getUser = expressAsyncHandler(async (req, res) => {
-//     const { id } = req.params
-
-//     const user = await User.findById(id)
-
-//     if (!user || !user.isEmailVerified || isBlockedByHim(req.user!, user)) {
-//         res.status(404)
-//         throw new Error('User not found.')
-//     }
-
-//     const sendableUser = getSendableUser(user, req.user!)
-
-//     res.status(200).json({
-//         user: sendableUser,
-//     })
-// })
-
-// export const getBlockedUsers = expressAsyncHandler(async (req, res) => {
-//     const user = await User.findById(req.user!._id).populate('blocked')
-
-//     if (!user) {
-//         res.status(400)
-//         throw new Error('Something went wrong.')
-//     }
-
-//     const blockedUsers = user.blocked.map((u) => getSendableUser(u, req.user!))
-
-//     res.status(200).json({
-//         blockedUsers,
-//     })
-// })
-
-// export const searchUser = expressAsyncHandler(async (req, res) => {
-//     let { q, page: pageStr, limit: limitStr } = req.query
-
-//     let page: number = Number(pageStr)
-//     let limit: number = Number(limitStr)
-
-//     if (typeof q !== 'string') {
-//         res.status(400)
-//         throw new Error('Invalid Query parameter')
-//     }
-
-//     if (isNaN(page) || isNaN(limit)) {
-//         page = 1
-//         limit = 10
-//     }
-
-//     q = q.trim()
-
-//     if (!q) {
-//         res.status(400)
-//         throw new Error('Query is required')
-//     }
-
-//     let users = await User.find({
-//         $or: [
-//             { username: { $regex: q, $options: 'i' }, isEmailVerified: true },
-//             { name: { $regex: q, $options: 'i' }, isEmailVerified: true },
-//         ],
-//     })
-//         .sort('-createdAt')
-//         .skip((page - 1) * limit)
-//         .limit(limit)
-
-//     users = users.filter((u) => !isBlockedByHim(req.user!, u))
-
-//     res.status(200).json({
-//         users: users.map((u) => getSendableUser(u, req.user!)),
-//     })
-// })
+export const updateAccountPrivacy = async (
+    userId: string,
+    updates: ReturnType<typeof accountPrivacySchema.parse>
+) => {
+    await prisma.user.update({ where: { id: userId }, data: updates })
+
+    return {
+        message: 'Saved',
+    }
+}
+
+export const addSecondaryEmail = async <
+    U extends { id: string; email: string; secondaryEmail: string | null }
+>(
+    user: U,
+    { email }: { email: string }
+) => {
+    if (email === user.email) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Email is same as current email',
+        })
+    }
+
+    if (user.secondaryEmail) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Secondary email already exists',
+        })
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email } })
+
+    if (existingUser) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: "'Email is already linked to another account'",
+        })
+    }
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { secondaryEmail: email, isEmailVerified: false },
+    })
+
+    return {
+        message: 'Secondary email added',
+    }
+}
+
+export const removeSecondaryEmail = async <
+    U extends { id: string; secondaryEmail: string | null }
+>(
+    user: U
+) => {
+    if (!user.secondaryEmail) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Secondary email does not exist',
+        })
+    }
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { secondaryEmail: null, isSecondaryEmailVerified: null },
+    })
+
+    return {
+        message: 'Secondary email removed',
+    }
+}
+
+export const updateSecondaryEmail = async <
+    U extends { id: string; email: string; secondaryEmail: string | null }
+>(
+    user: U,
+    { email }: { email: string }
+) => {
+    if (!user.secondaryEmail) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Secondary email does not exist',
+        })
+    }
+
+    if (email === user.email) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Email is same as current email',
+        })
+    }
+
+    if (email === user.secondaryEmail) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Email is same as secondary email',
+        })
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email } })
+
+    if (existingUser) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: "'Email is already linked to another account'",
+        })
+    }
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { secondaryEmail: email, isSecondaryEmailVerified: false },
+    })
+
+    return {
+        message: 'Secondary email updated',
+    }
+}
+
+export const getOtpForSecondaryEmail = async <
+    U extends {
+        id: string
+        secondaryEmail: string | null
+        isSecondaryEmailVerified: boolean | null
+    }
+>(
+    user: U
+) => {
+    if (!user.secondaryEmail) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Secondary email does not exist',
+        })
+    }
+
+    if (user.isSecondaryEmailVerified) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Secondary email is already verified',
+        })
+    }
+
+    const otp = genOtp()
+
+    const hashedOtp = crypto
+        .createHash('sha256')
+        .update(otp.toString())
+        .digest('hex')
+    const secondaryEmailOtpExpiry = Date.now() + 1000 * 60 * 5 // 5 minutes
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { secondaryEmailOtp: hashedOtp, secondaryEmailOtpExpiry },
+    })
+
+    await sendOtp(user.secondaryEmail, otp, 'VERIFY_SECONDARY_EMAIL')
+
+    return {
+        message: 'OTP sent',
+    }
+}
+
+export const verifySecondaryEmail = async <
+    U extends {
+        id: string
+        secondaryEmail: string | null
+        isSecondaryEmailVerified: boolean | null
+        secondaryEmailOtp: string | null
+        secondaryEmailOtpExpiry: number | null
+    }
+>(
+    user: U,
+    { otp }: { otp: number }
+) => {
+    if (!user.secondaryEmail) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Secondary email does not exist',
+        })
+    }
+
+    if (user.isSecondaryEmailVerified) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Secondary email is already verified',
+        })
+    }
+
+    if (!user.secondaryEmailOtp || !user.secondaryEmailOtpExpiry) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'OTP for verification is not requested yet by you.',
+        })
+    }
+
+    if (Date.now() > user.secondaryEmailOtpExpiry) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'OTP has expired',
+        })
+    }
+
+    const hashedOtp = crypto
+        .createHash('sha256')
+        .update(otp.toString())
+        .digest('hex')
+
+    if (hashedOtp !== user.secondaryEmailOtp) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'OTP is incorrect',
+        })
+    }
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: {
+            isSecondaryEmailVerified: true,
+            secondaryEmailOtp: null,
+            secondaryEmailOtpExpiry: null,
+        },
+    })
+
+    return {
+        message: 'Secondary email verified',
+    }
+}
+
+export const makeSecondaryEmailPrimary = async <
+    U extends {
+        id: string
+        email: string
+        secondaryEmail: string | null
+        isSecondaryEmailVerified: boolean | null
+    }
+>(
+    user: U
+) => {
+    if (!user.secondaryEmail) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Secondary email not found',
+        })
+    }
+
+    if (!user.isSecondaryEmailVerified) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Secondary email is not verified',
+        })
+    }
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { email: user.secondaryEmail, secondaryEmail: user.email },
+    })
+
+    return {
+        message: 'Secondary email made primary',
+    }
+}
+
+export const sendOrAcceptRequest = async (userId: string, id: string) => {
+    return prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({ where: { id: userId } })
+        const friend = await tx.user.findUnique({ where: { id } })
+
+        if (!user) {
+            throw new ControllerError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'Something went wrong.',
+            })
+        }
+
+        if (!friend || !friend.isEmailVerified) {
+            throw new ControllerError({
+                code: 'NOT_FOUND',
+                message: 'User not found',
+            })
+        }
+
+        if (user.id === friend.id) {
+            throw new ControllerError({
+                code: 'BAD_REQUEST',
+                message: 'You can not add yourself as a friend',
+            })
+        }
+
+        // If the friend have blocked you
+        if (isBlockedByHim(user, friend)) {
+            throw new ControllerError({
+                code: 'NOT_FOUND',
+                message: 'User not found',
+            })
+        }
+
+        // If you have blocked him
+        if (isBlockedByMe(user, friend)) {
+            throw new ControllerError({
+                code: 'BAD_REQUEST',
+                message:
+                    'You have blocked this user. You have to unblock him before sending friend request',
+            })
+        }
+
+        // Check if already friend
+        if (isFriend(user, friend)) {
+            throw new ControllerError({
+                code: 'BAD_REQUEST',
+                message: 'Already friends',
+            })
+        }
+
+        // Check if friend request already sent
+        if (isInSentFriendRequest(user, friend)) {
+            throw new ControllerError({
+                code: 'BAD_REQUEST',
+                message: 'Already sent friend request',
+            })
+        }
+
+        // If request pending then accept
+        if (isInReceivedFriendRequests(user, friend)) {
+            const userReceivedFriendRequestsIds =
+                user.receivedFriendRequestsIds.filter((f) => friend.id !== f)
+
+            const friendSentFriendRequestsIds =
+                friend.sentFriendRequestsIds.filter((f) => user.id !== f)
+
+            const p1 = tx.user.update({
+                where: { id: user.id },
+                data: {
+                    friendsIds: { push: friend.id },
+                    receivedFriendRequestsIds: userReceivedFriendRequestsIds,
+                },
+            })
+
+            const p2 = tx.user.update({
+                where: {
+                    id: friend.id,
+                },
+                data: {
+                    friendsIds: {
+                        push: user.id,
+                    },
+                    sentFriendRequestsIds: friendSentFriendRequestsIds,
+                },
+            })
+
+            await Promise.all([p1, p2])
+
+            return {
+                message: 'Friend request accepted',
+            }
+        }
+
+        // Else Send the request
+        const p1 = tx.user.update({
+            where: { id: user.id },
+            data: {
+                sentFriendRequestsIds: {
+                    push: friend.id,
+                },
+            },
+        })
+
+        const p2 = tx.user.update({
+            where: {
+                id: friend.id,
+            },
+            data: {
+                receivedFriendRequestsIds: {
+                    push: user.id,
+                },
+            },
+        })
+
+        await Promise.all([p1, p2])
+
+        return { message: 'Friend Request sent.' }
+    })
+}
+
+export const unfriendRejectOrCancelFriendRequest = async (
+    userId: string,
+    id: string
+) => {
+    return prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({ where: { id: userId } })
+        const friend = await tx.user.findUnique({ where: { id } })
+
+        if (!user) {
+            throw new ControllerError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'Something went wrong.',
+            })
+        }
+
+        if (!friend || !friend.isEmailVerified) {
+            throw new ControllerError({
+                code: 'NOT_FOUND',
+                message: 'User not found',
+            })
+        }
+
+        if (user.id === friend.id) {
+            throw new ControllerError({
+                code: 'BAD_REQUEST',
+                message: 'Requested action cannot be performed',
+            })
+        }
+
+        // If the friend have blocked you
+        if (isBlockedByHim(user, friend)) {
+            throw new ControllerError({
+                code: 'NOT_FOUND',
+                message: 'User not found',
+            })
+        }
+
+        // If you have blocked him
+        if (isBlockedByMe(user, friend)) {
+            throw new ControllerError({
+                code: 'BAD_REQUEST',
+                message:
+                    'You have blocked this user. You have to unblock him before sending/canceling friend request',
+            })
+        }
+
+        // Check if friend
+        if (isFriend(user, friend)) {
+            const userFriendsIds = user.friendsIds.filter(
+                (f) => friend.id !== f
+            )
+
+            const friendFriendsIds = friend.friendsIds.filter(
+                (f) => user.id !== f
+            )
+
+            const p1 = tx.user.update({
+                where: { id: user.id },
+                data: { friendsIds: userFriendsIds },
+            })
+            const p2 = tx.user.update({
+                where: { id: friend.id },
+                data: { friendsIds: friendFriendsIds },
+            })
+
+            await Promise.all([p1, p2])
+            return {
+                message: 'Unfriended',
+            }
+        }
+
+        // Check if friend request already sent
+        if (isInSentFriendRequest(user, friend)) {
+            const userSentFriendRequestsIds = user.sentFriendRequestsIds.filter(
+                (f) => friend.id !== f
+            )
+
+            const friendReceivedFriendRequestsIds =
+                friend.receivedFriendRequestsIds.filter((f) => user.id !== f)
+
+            const p1 = tx.user.update({
+                where: { id: user.id },
+                data: { sentFriendRequestsIds: userSentFriendRequestsIds },
+            })
+            const p2 = tx.user.update({
+                where: { id: friend.id },
+                data: {
+                    receivedFriendRequestsIds: friendReceivedFriendRequestsIds,
+                },
+            })
+
+            await Promise.all([p1, p2])
+            return {
+                message: 'Friend request cancelled',
+            }
+            return
+        }
+
+        // Check if friend request received
+        if (isInReceivedFriendRequests(user, friend)) {
+            const userReceivedFriendRequestsIds =
+                user.receivedFriendRequestsIds.filter((f) => friend.id !== f)
+
+            const friendSentFriendRequests =
+                friend.sentFriendRequestsIds.filter((f) => user.id !== f)
+
+            const p1 = tx.user.update({
+                where: { id: user.id },
+                data: {
+                    receivedFriendRequestsIds: userReceivedFriendRequestsIds,
+                },
+            })
+            const p2 = tx.user.update({
+                where: { id: friend.id },
+                data: {
+                    sentFriendRequestsIds: friendSentFriendRequests,
+                },
+            })
+
+            await Promise.all([p1, p2])
+
+            return {
+                message: 'Friend request rejected',
+            }
+        }
+
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Requested action cannot be performed',
+        })
+    })
+}
+
+export const blockUser = async (userId: string, id: string) => {
+    return prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({ where: { id: userId } })
+        const userToBeBlocked = await tx.user.findUnique({ where: { id } })
+
+        if (!user) {
+            throw new ControllerError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'Something went wrong.',
+            })
+        }
+
+        if (!userToBeBlocked || !userToBeBlocked.isEmailVerified) {
+            throw new ControllerError({
+                code: 'NOT_FOUND',
+                message: 'User not found',
+            })
+        }
+
+        if (user.id === userToBeBlocked.id) {
+            throw new ControllerError({
+                code: 'BAD_REQUEST',
+                message: 'Requested action cannot be performed',
+            })
+        }
+
+        // If the userToBeBlocked have blocked you
+        if (isBlockedByHim(user, userToBeBlocked)) {
+            throw new ControllerError({
+                code: 'NOT_FOUND',
+                message: 'User not found',
+            })
+        }
+
+        if (isBlockedByMe(user, userToBeBlocked)) {
+            throw new ControllerError({
+                code: 'BAD_REQUEST',
+                message: 'User already Blocked',
+            })
+        }
+
+        const userUpdates: {
+            sentFriendRequestIds?: string[]
+            receivedFriendRequestsIds?: string[]
+            friendsIds?: string[]
+        } = {}
+        const userToBeBlockedUpdates: {
+            sentFriendRequestIds?: string[]
+            receivedFriendRequestsIds?: string[]
+            friendsIds?: string[]
+        } = {}
+
+        if (isInSentFriendRequest(user, userToBeBlocked)) {
+            userUpdates.sentFriendRequestIds =
+                user.sentFriendRequestsIds.filter(
+                    (f) => userToBeBlocked.id !== f
+                )
+
+            userToBeBlockedUpdates.receivedFriendRequestsIds =
+                userToBeBlocked.receivedFriendRequestsIds.filter(
+                    (f) => user.id !== f
+                )
+        }
+
+        if (isInReceivedFriendRequests(user, userToBeBlocked)) {
+            userUpdates.receivedFriendRequestsIds =
+                user.receivedFriendRequestsIds.filter(
+                    (f) => userToBeBlocked.id !== f
+                )
+
+            userToBeBlockedUpdates.sentFriendRequestIds =
+                userToBeBlocked.sentFriendRequestsIds.filter(
+                    (f) => user.id !== f
+                )
+        }
+
+        if (isFriend(user, userToBeBlocked)) {
+            userUpdates.friendsIds = user.friendsIds.filter(
+                (f) => userToBeBlocked.id !== f
+            )
+
+            userToBeBlocked.friendsIds = userToBeBlocked.friendsIds.filter(
+                (f) => user.id !== f
+            )
+        }
+
+        // TODO: As we continue adding features there will be more to do here
+
+        const p1 = tx.user.update({
+            where: { id: user.id },
+            data: { ...userUpdates, blockedIds: { push: userToBeBlocked.id } },
+        })
+        const p2 = tx.user.update({
+            where: { id: userToBeBlocked.id },
+            data: { ...userUpdates, blockedByIds: { push: user.id } },
+        })
+
+        await Promise.all([p1, p2])
+        return {
+            message: 'User blocked',
+        }
+    })
+}
+export const unblockUser = async (userId: string, id: string) => {
+    return prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({ where: { id: userId } })
+        const blockedUser = await tx.user.findUnique({ where: { id } })
+
+        if (!user) {
+            throw new ControllerError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'Something went wrong.',
+            })
+        }
+
+        if (!blockedUser || !blockedUser.isEmailVerified) {
+            throw new ControllerError({
+                code: 'NOT_FOUND',
+                message: 'User not found',
+            })
+        }
+
+        if (user.id === blockedUser.id) {
+            throw new ControllerError({
+                code: 'BAD_REQUEST',
+                message: 'Requested action cannot be performed',
+            })
+        }
+
+        // If the userToBeBlocked have blocked you
+        if (isBlockedByHim(user, blockedUser)) {
+            throw new ControllerError({
+                code: 'NOT_FOUND',
+                message: 'User not found',
+            })
+        }
+
+        if (isBlockedByMe(user, blockedUser)) {
+            const userBlockedIds = user.blockedIds.filter(
+                (u) => u !== blockedUser.id
+            )
+            const blockedUserBlockedByIds = blockedUser.blockedByIds.filter(
+                (u) => u !== user.id
+            )
+
+            const p1 = tx.user.update({
+                where: { id: user.id },
+                data: { blockedIds: userBlockedIds },
+            })
+            const p2 = tx.user.update({
+                where: { id: blockedUser.id },
+                data: { blockedByIds: blockedUserBlockedByIds },
+            })
+
+            await Promise.all([p1, p2])
+
+            return {
+                message: 'User unblocked.',
+            }
+        }
+
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Requested action cannot be performed',
+        })
+    })
+}
+
+export const getBlockedUsers = async (userId: string) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+            blocked: {
+                select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    bio: true,
+                    avatar: true,
+                    lastSeen: true,
+                    whoCanSeeAvatar: true,
+                    whoCanSeeBio: true,
+                    whoCanSendYouMessage: true,
+                    whoCanSeeLastSeen: true,
+                },
+            },
+        },
+    })
+
+    if (!user) {
+        throw new ControllerError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Something went wrong',
+        })
+    }
+
+    const blockedUsers = user.blocked.map((u) => mapUser(user, u))
+
+    return {
+        blockedUsers,
+    }
+}

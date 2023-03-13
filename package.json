@@ -32,7 +32,7 @@
     "packageManager": "pnpm@7.5.2",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/anuragkumar19/telecord-backend.git"
+        "url": "git+https://github.com/anuragkumar19/telecord-trpc-nuxt3.git"
     },
     "keywords": [
         "node",
@@ -45,7 +45,7 @@
     "author": "Anurag Kumar <https://github.com/anuragkumar19>",
     "license": "MIT",
     "bugs": {
-        "url": "https://github.com/anuragkumar19/telecord-backend/issues"
+        "url": "https://github.com/anuragkumar19/telecord-trpc-nuxt3/issues"
     },
-    "homepage": "https://github.com/anuragkumar19/telecord-backend#readme"
+    "homepage": "https://github.com/anuragkumar19/telecord-trpc-nuxt3#readme"
 }

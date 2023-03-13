@@ -1,39 +1,8 @@
 {
-    "conventionalCommits.scopes": ["all"],
-    "files.exclude": {
-        "**/.git": true,
-        "**/.svn": true,
-        "**/.hg": true,
-        "**/CVS": true,
-        "**/.DS_Store": true,
-        "**/Thumbs.db": true,
-        "**/node_modules": true,
-    },
-    "cSpell.words": [
-        "Vitesse",
-        "Vite",
-        "unocss",
-        "vitest",
-        "vueuse",
-        "pinia",
-        "demi",
-        "antfu",
-        "iconify",
-        "intlify",
-        "vitejs",
-        "unplugin",
-        "pnpm"
+    "conventionalCommits.scopes": [
+        "all"
     ],
-    "i18n-ally.sourceLanguage": "en",
-    "i18n-ally.keystyle": "nested",
-    "i18n-ally.localesPaths": "locales",
-    "i18n-ally.sortKeys": true,
-    "prettier.enable": false,
-    "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": true
-    },
-    "files.associations": {
-        "*.css": "postcss"
-    },
-    "editor.formatOnSave": false
+    "cSpell.words": [
+        "superjson"
+    ]
 }

@@ -1,9 +1,8 @@
 import jwt, { JwtPayload } from 'jsonwebtoken'
 import { prisma } from '@telecord/db'
 import { ControllerError } from '../error'
-import { middleware } from '../trpc'
 
-const getUserFromToken = async (token?: string) => {
+export const getUserFromToken = async (token?: string) => {
     if (!token) {
         throw new ControllerError({
             message: 'No token provided',
@@ -44,18 +43,6 @@ const getUserFromToken = async (token?: string) => {
     }
 }
 
-export const authGuardTRPC = middleware(async ({ ctx, next }) => {
-    const token = ctx.req.headers.authorization
-
-    const user = await getUserFromToken(token)
-
-    return next({
-        ctx: {
-            ...ctx,
-            user,
-        },
-    })
-});
   
 
 // export const verifyPassword: (schema?: Schema) => Handler =

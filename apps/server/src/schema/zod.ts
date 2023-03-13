@@ -1,16 +1,55 @@
+import { WhoCanSee, WhoCanSend } from '@telecord/db'
 import { z } from 'zod'
 
-const name = z.string()
-const email = z.string().email().toLowerCase()
-const username = z
-    .string()
-    .min(3)
-    .max(50)
+const zodString = (field: string) =>
+    z.string({
+        invalid_type_error: `${field} is invalid.`,
+        required_error: `${field} is required`,
+    })
+
+const name = zodString('name')
+    .trim()
+    .nonempty({ message: 'Name cannot be empty' })
+
+const email = zodString('email')
+    .trim()
     .toLowerCase()
-    .regex(/^[a-z0-9]+$/i, 'Username must contain only letters and numbers')
-const newPassword = z.string().min(8)
-const password = z.string()
-const otp = z.number().min(100000).max(999999)
+    .email({ message: 'Invalid email' })
+
+const username = zodString('username')
+    .trim()
+    .toLowerCase()
+    .min(3, { message: 'Username must be at least 3 character long' })
+    .max(50, { message: 'Username cannot exceed 50 character' })
+    .regex(
+        /^[a-zA-Z0-9_.]+$/i,
+        'Username must contain only letters, numbers, periods(.) & underscores(_)'
+    )
+    .refine((arg) => /[a-zA-Z]/.test(arg.charAt(0)), {
+        message:
+            'Username cannot start with number periods(.) or underscores(_)',
+    })
+
+// TODO: Password can have maximum 72 bytes. Zod currently doesn't support counting length in bytes/neither does ECMAScript natively. We can do some trick (Ref:https://stackoverflow.com/questions/5515869/string-length-in-bytes-in-javascript). Currently fixing the max length to 60 char.
+const newPassword = zodString('password')
+    .min(8, { message: 'Password must be at least 8 character long' })
+    .max(60, { message: 'Password cannot exceed 60 character' })
+
+const password = zodString('password').nonempty({
+    message: 'Password cannot be empty',
+})
+
+const otp = z
+    .number()
+    .min(100000, { message: 'Invalid OTP' })
+    .max(999999, { message: 'Invalid OTP' })
+
+const whoCanSee = z
+    .nativeEnum(WhoCanSee, { invalid_type_error: 'Invalid Value' })
+    .optional()
+const whoCanSend = z
+    .nativeEnum(WhoCanSend, { invalid_type_error: 'Invalid Value' })
+    .optional()
 
 export const registerSchema = z.object({
     name,
@@ -40,5 +79,61 @@ export const loginSchema = z.object({
 })
 
 export const refreshTokenSchema = z.object({
-    refreshToken: z.string(),
+    refreshToken: zodString('refreshToken').nonempty(),
+})
+
+export const updateNameSchema = z.object({
+    name,
+})
+
+export const updateUsernameSchema = z.object({
+    username,
+})
+
+export const secondaryEmailSchema = z.object({
+    email,
+})
+
+export const updatePasswordSchema = z.object({
+    oldPassword: password,
+    newPassword: newPassword,
+})
+
+export const updateBioSchema = z.object({
+    bio: zodString('bio').max(200, {
+        message: ' Bio cannot exceed 200 characters',
+    }),
+})
+
+export const verifySecondaryEmailSchema = z.object({
+    otp,
+})
+
+export const accountPrivacySchema = z.object({
+    whoCanSeeBio: whoCanSee,
+    whoCanSeeActiveStatus: whoCanSee,
+    whoCanSeeAvatar: whoCanSee,
+    whoCanSeeLastSeen: whoCanSee,
+    whoCanSeeStatus: whoCanSee,
+    whoCanSendYouMessage: whoCanSend,
+})
+
+export const createStatusSchema = z.object({
+    caption: zodString('caption')
+        .trim()
+        .max(500, { message: 'Caption cannot be longer than 500 characters' })
+        .optional(),
+})
+
+export const idOnlySchema = z.object({
+    id: zodString('id').nonempty(),
+})
+
+export const withPaginationSchema = z.object({
+    cursor: zodString('cursor').nonempty(),
+    limit: z.number(),
+})
+
+export const searchUserSchema = withPaginationSchema.extend({
+    query: zodString('query'),
 })

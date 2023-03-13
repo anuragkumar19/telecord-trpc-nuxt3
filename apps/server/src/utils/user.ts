@@ -1,4 +1,4 @@
-import { User } from '@telecord/db'
+import { User, WhoCanSee, WhoCanSend } from '@telecord/db'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
@@ -12,7 +12,7 @@ export const comparePassword = (
     userPassword: string,
     enteredPassword: string
 ) => {
-    return bcrypt.compareSync(userPassword, enteredPassword)
+    return bcrypt.compareSync(enteredPassword, userPassword)
 }
 
 export const generateAuthTokens = (id: string) => {
@@ -35,22 +35,53 @@ export const generateAuthTokens = (id: string) => {
     return { refreshToken, accessToken }
 }
 
-export const isFriend = (u1: User, u2: User) =>
-    !!u1.friendsIds.find((fid) => u2.id === fid)
+export const isFriend = <
+    U1 extends { friendsIds: string[] },
+    U2 extends { id: string }
+>(
+    u1: U1,
+    u2: U2
+) => !!u1.friendsIds.find((fid) => u2.id === fid)
 
-export const isInReceivedFriendRequests = (me: User, he: User) =>
-    me.receivedFriendRequestsIds.findIndex((fid) => fid === he.id) !== -1
+export const isInReceivedFriendRequests = <
+    Me extends { receivedFriendRequestsIds: string[] },
+    He extends { id: string }
+>(
+    me: Me,
+    he: He
+) => me.receivedFriendRequestsIds.findIndex((fid) => fid === he.id) !== -1
 
-export const isInSentFriendRequest = (me: User, he: User) =>
-    me.sentFriendRequestsIds.findIndex((fid) => he.id == fid) !== -1
+export const isInSentFriendRequest = <
+    Me extends { sentFriendRequestsIds: string[] },
+    He extends { id: string }
+>(
+    me: Me,
+    he: He
+) => me.sentFriendRequestsIds.findIndex((fid) => he.id === fid) !== -1
 
-export const isBlockedByMe = (me: User, he: User) =>
-    me.blockedIds.findIndex((uid) => he.id === uid) !== -1
+export const isBlockedByMe = <
+    Me extends { blockedIds: string[] },
+    He extends { id: string }
+>(
+    me: Me,
+    he: He
+) => me.blockedIds.findIndex((uid) => he.id === uid) !== -1
 
-export const isBlockedByHim = (me: User, he: User) =>
-    he.blockedIds.findIndex((uid) => me.id === uid) !== -1
+export const isBlockedByHim = <
+    Me extends { blockedByIds: string[] },
+    He extends { id: string }
+>(
+    me: Me,
+    he: He
+) => me.blockedByIds.findIndex((uid) => he.id === uid) !== -1
 
-export const canSendMessage = (me: User, he: User) => {
+export const canSendMessage = <
+    Me extends { friendsIds: string[]; id: string },
+    He extends { id: string; whoCanSendYouMessage: WhoCanSend }
+>(
+    me: Me,
+    he: He
+) => {
     const isSelf = me.id === he.id
 
     if (!isSelf && he.whoCanSendYouMessage === 'FRIENDS' && !isFriend(me, he)) {
@@ -75,7 +106,30 @@ export interface MappedUser {
     canSendMessage: boolean
 }
 
-export const mapUser = (me: User, he: User) => {
+export const mapUser = <
+    Me extends {
+        id: string
+        friendsIds: string[]
+        receivedFriendRequestsIds: string[]
+        sentFriendRequestsIds: string[]
+        blockedIds: string[]
+    },
+    He extends {
+        id: string
+        name: string
+        username: string
+        bio: string
+        avatar: string
+        lastSeen: Date | null
+        whoCanSeeAvatar: WhoCanSee
+        whoCanSeeBio: WhoCanSee
+        whoCanSendYouMessage: WhoCanSend
+        whoCanSeeLastSeen: WhoCanSee
+    }
+>(
+    me: Me,
+    he: He
+) => {
     const isSelf = me.id === he.id
 
     const sendableUser: MappedUser = {
@@ -95,7 +149,7 @@ export const mapUser = (me: User, he: User) => {
     if (
         isSelf ||
         he.whoCanSeeAvatar === 'EVERYONE' ||
-        (he.whoCanSeeAvatar === 'FRIENDS' && isFriend(he, me))
+        (he.whoCanSeeAvatar === 'FRIENDS' && isFriend(me, he))
     ) {
         sendableUser.avatar = he.avatar
     }
@@ -110,8 +164,8 @@ export const mapUser = (me: User, he: User) => {
 
     if (
         isSelf ||
-        he.whoCanSeeBio === 'EVERYONE' ||
-        (he.whoCanSeeBio === 'FRIENDS' && isFriend(me, he))
+        he.whoCanSeeLastSeen === 'EVERYONE' ||
+        (he.whoCanSeeLastSeen === 'FRIENDS' && isFriend(me, he))
     ) {
         sendableUser.lastSeen = he.lastSeen
     }

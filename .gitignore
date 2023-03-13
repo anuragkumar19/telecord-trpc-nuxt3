@@ -36,3 +36,17 @@ yarn-error.log*
 # custom
 __temp__
 dist
+
+*.log*
+.nuxt
+.nitro
+.cache
+.output
+.env
+dist
+.DS_Store
+
+# cert
+fastify.cert
+fastify.key
+csr.pem
