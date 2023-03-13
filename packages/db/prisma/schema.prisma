@@ -62,6 +62,10 @@ model User {
   friends     User[]   @relation("Friends", fields: [friendsIds], references: [id])
   friendOfIds String[] @db.ObjectId
   friendOf    User[]   @relation("Friends", fields: [friendOfIds], references: [id])
+  status      status[] @relation("statusAuthorUser")
+
+  seenStatusIds String[] @ignore @db.ObjectId
+  seenStatus    status[] @relation("statusSeenByUser", fields: [seenStatusIds], references: [id]) @ignore
 
   @@map("users")
 }
@@ -70,20 +74,29 @@ model User {
 //   id String @id @default(auto()) @map("_id") @db.ObjectId
 // }
 
-// model status {
-//   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-//   v         Int      @map("__v")
-//   caption   String
-//   createdAt DateTime @db.Date
-//   media     String
-//   mediaType String
-//   /// Could not determine type: the field only had null or empty values in the sample set.
-//   seenBy    Json?
-//   updatedAt DateTime @db.Date
-//   user      String   @db.ObjectId
+enum StatusMediaType {
+  IMAGE
+  VIDEO
+}
 
-//   @@index([createdAt], map: "createdAt_1")
-// }
+model status {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now()) @db.Date
+  updatedAt DateTime @updatedAt @db.Date
+
+  caption   String?
+  media     String
+  mediaType StatusMediaType
+
+  seenByIds String[] @db.ObjectId
+  seenBy    User[]   @relation("statusSeenByUser", fields: [seenByIds], references: [id])
+
+  authorId String @db.ObjectId
+  author   User   @relation("statusAuthorUser", fields: [authorId], references: [id])
+
+  @@index([createdAt], map: "createdAt_1")
+  @@map("status")
+}
 
 // model threads {
 //   id         String @id @default(auto()) @map("_id") @db.ObjectId

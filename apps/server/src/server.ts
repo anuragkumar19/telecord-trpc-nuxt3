@@ -41,6 +41,16 @@ server.register(fastifyTRPCPlugin, {
 export const startServer = async () => {
     try {
         await prisma.$connect()
+
+        // Create index for status to delete them after 24 hours
+        prisma.$runCommandRaw({
+            collMod: 'status',
+            index: {
+                keyPattern: { createdAt: 1 },
+                expireAfterSeconds: 24 * 60 * 60, // 24 hours
+            },
+        })
+
         console.log(`Prisma: MongoDB Connected`.bgBlue.bold)
 
         await server.listen({ port: PORT })
