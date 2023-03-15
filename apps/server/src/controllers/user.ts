@@ -15,6 +15,9 @@ import {
 } from '../utils/user'
 import { ControllerError } from '../error'
 import { accountPrivacySchema } from '../schema/zod'
+import { redis } from '../services/redis'
+import { getSecondaryEmailOtpKey, getTempUploadKey } from '../utils/redis'
+import { TempUpload } from '../constants'
 
 export const getLoggedInUser = (user: User) => {
     return mapMe(user)
@@ -270,23 +273,56 @@ export const updatePassword = async <
     }
 }
 
-// export const uploadAvatar = expressAsyncHandler(async (req, res) => {
-//     const user = req.user!
-//     const file = req.file!
+export const updateAvatar = async (
+    userId: string,
+    { publicId }: { publicId: string }
+) => {
+    const key = getTempUploadKey(publicId)
+    const tempUploadStr = (await redis.get(key)) as string
 
-//     const path = file.path.replace(
-//         'https://res.cloudinary.com/instavite/image/upload/',
-//         'https://res.cloudinary.com/instavite/image/upload/c_fill,h_480,w_480/'
-//     )
+    if (!tempUploadStr) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Avatar upload not found',
+        })
+    }
 
-//     user.avatar = path
+    const tempUpload = JSON.parse(tempUploadStr) as TempUpload
 
-//     await user.save()
+    if (!tempUpload.uploaded) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Avatar not uploaded yet',
+        })
+    }
 
-//     res.status(200).json({
-//         message: 'Avatar updated',
-//     })
-// })
+    if (tempUpload.authorId !== userId) {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Avatar upload not found',
+        })
+    }
+
+    if (tempUpload.type !== 'IMAGE') {
+        throw new ControllerError({
+            code: 'BAD_REQUEST',
+            message: 'Avatar must be an image',
+        })
+    }
+
+    const p1 = prisma.user.update({
+        where: { id: userId },
+        data: { avatar: publicId },
+    })
+
+    const p2 = redis.del(key)
+
+    await Promise.all([p1, p2])
+
+    return {
+        message: 'Avatar Updated',
+    }
+}
 
 export const updateAccountPrivacy = async (
     userId: string,
@@ -411,6 +447,8 @@ export const getOtpForSecondaryEmail = async <
         id: string
         secondaryEmail: string | null
         isSecondaryEmailVerified: boolean | null
+        secondaryEmailOtp: string | null
+        secondaryEmailOtpExpiry: number | null
     }
 >(
     user: U
@@ -429,6 +467,26 @@ export const getOtpForSecondaryEmail = async <
         })
     }
 
+    let noOfTimesOtpSent = Number(
+        await redis.get(getSecondaryEmailOtpKey(user.id))
+    )
+
+    if (!noOfTimesOtpSent) {
+        noOfTimesOtpSent = 0
+    }
+
+    if (
+        user.secondaryEmailOtp &&
+        user.secondaryEmailOtpExpiry &&
+        user.secondaryEmailOtpExpiry - Date.now() >
+            (5 - noOfTimesOtpSent) * 60 * 100
+    ) {
+        throw new ControllerError({
+            code: 'TOO_MANY_REQUESTS',
+            message: 'Already sent OTP. Try in few moment.',
+        })
+    }
+
     const otp = genOtp()
 
     const hashedOtp = crypto
@@ -437,12 +495,17 @@ export const getOtpForSecondaryEmail = async <
         .digest('hex')
     const secondaryEmailOtpExpiry = Date.now() + 1000 * 60 * 5 // 5 minutes
 
-    await prisma.user.update({
+    const p1 = prisma.user.update({
         where: { id: user.id },
         data: { secondaryEmailOtp: hashedOtp, secondaryEmailOtpExpiry },
     })
 
-    await sendOtp(user.secondaryEmail, otp, 'VERIFY_SECONDARY_EMAIL')
+    const p2 = sendOtp(user.secondaryEmail, otp, 'VERIFY_SECONDARY_EMAIL')
+
+    await redis.incr(getSecondaryEmailOtpKey(user.id))
+    const p3 = redis.expire(getSecondaryEmailOtpKey(user.id), 5 * 60) // 5 minutes
+
+    await Promise.all([p1, p2, p3])
 
     return {
         message: 'OTP sent',
@@ -501,7 +564,7 @@ export const verifySecondaryEmail = async <
         })
     }
 
-    await prisma.user.update({
+    const p1 = prisma.user.update({
         where: { id: user.id },
         data: {
             isSecondaryEmailVerified: true,
@@ -509,6 +572,10 @@ export const verifySecondaryEmail = async <
             secondaryEmailOtpExpiry: null,
         },
     })
+
+    const p2 = redis.del(getSecondaryEmailOtpKey(user.id))
+
+    await Promise.all([p1, p2])
 
     return {
         message: 'Secondary email verified',

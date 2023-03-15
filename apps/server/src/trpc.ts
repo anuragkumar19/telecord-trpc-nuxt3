@@ -4,29 +4,46 @@ import { getUserFromToken } from './middleware/auth'
 import { Context } from './router/context'
 import { sentenceCase } from 'sentence-case'
 import superjson from 'superjson'
+import { rateLimit } from './middleware/rateLimit'
 
-const t = initTRPC.context<Context>().create({
-    errorFormatter({ shape, error }) {
-        let message = error.message
+interface Meta {
+    reqPerMinute: number
+}
 
-        if (error.cause instanceof ZodError) {
-            const errors = JSON.parse(message) as ZodError[]
+const t = initTRPC
+    .context<Context>()
+    .meta<Meta>()
+    .create({
+        errorFormatter({ shape, error }) {
+            let message = error.message
 
-            // One error at a time
-            message = errors[0]!.message
-        }
+            if (error.cause instanceof ZodError) {
+                const errors = JSON.parse(message) as ZodError[] // We know
 
-        return {
-            ...shape,
-            message: sentenceCase(message),
-        }
-    },
-    transformer: superjson,
-})
+                // One error at a time
+                message = errors[0]!.message
+            }
+
+            return {
+                ...shape,
+                message: sentenceCase(message),
+            }
+        },
+        transformer: superjson,
+    })
 
 export const middleware = t.middleware
 export const router = t.router
-export const publicProcedure = t.procedure
+
+export const rateLimitTRPC = middleware(async ({ ctx, next, meta }) => {
+    await rateLimit(ctx.req.ip, meta?.reqPerMinute)
+
+    return next({
+        ctx,
+    })
+})
+
+export const publicProcedure = t.procedure.use(rateLimitTRPC)
 
 export const authGuardTRPC = middleware(async ({ ctx, next }) => {
     const token = ctx.req.headers.authorization
@@ -41,4 +58,6 @@ export const authGuardTRPC = middleware(async ({ ctx, next }) => {
     })
 })
 
-export const protectedProcedure = t.procedure.use(authGuardTRPC)
+export const protectedProcedure = t.procedure
+    .use(rateLimitTRPC)
+    .use(authGuardTRPC)

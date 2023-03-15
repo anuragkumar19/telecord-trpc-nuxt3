@@ -1,12 +1,15 @@
-import ws from '@fastify/websocket'
-import { prisma } from '@telecord/db'
-import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify'
-import cors from '@fastify/cors'
 import 'colors'
-import fastify from 'fastify'
 import fs from 'fs'
 import path from 'path'
+import fastify from 'fastify'
+import cors from '@fastify/cors'
+import ws from '@fastify/websocket'
+import multipart from '@fastify/multipart'
+import fastifyRawBody from 'fastify-raw-body'
+import { prisma } from '@telecord/db'
+import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify'
 import { __PROD__ } from './constants'
+import { handleQstashUploadDeletion, uploadFile } from './controllers/upload'
 import { appRouter } from './router'
 import { createContext } from './router/context'
 
@@ -30,7 +33,19 @@ server.register(cors, {
     origin: true,
 })
 
+server.register(multipart, {
+    limits: {
+        fileSize: 5e7, // about 50mb
+    },
+})
+
 server.register(ws)
+
+server.register(fastifyRawBody, {
+    global: false,
+    runFirst: true,
+    routes: ['/api/q/delete-upload'],
+})
 
 server.register(fastifyTRPCPlugin, {
     prefix: 'trpc',
@@ -38,18 +53,21 @@ server.register(fastifyTRPCPlugin, {
     trpcOptions: { router: appRouter, createContext },
 })
 
+server.post('/api/upload', {
+    schema: {
+        querystring: {
+            publicId: { type: 'string' },
+            secret: { type: 'string' },
+        },
+    },
+    handler: uploadFile,
+})
+
+server.post('/api/q/delete-upload', handleQstashUploadDeletion)
+
 export const startServer = async () => {
     try {
         await prisma.$connect()
-
-        // Create index for status to delete them after 24 hours
-        prisma.$runCommandRaw({
-            collMod: 'status',
-            index: {
-                keyPattern: { createdAt: 1 },
-                expireAfterSeconds: 24 * 60 * 60, // 24 hours
-            },
-        })
 
         console.log(`Prisma: MongoDB Connected`.bgBlue.bold)
 

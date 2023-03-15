@@ -198,6 +198,9 @@ export const mapMe = ({
     whoCanSendYouMessage,
     createdAt,
     updatedAt,
+    friendsIds,
+    receivedFriendRequestsIds,
+    sentFriendRequestsIds,
 }: User) => {
     return {
         id,
@@ -219,5 +222,8 @@ export const mapMe = ({
         whoCanSendYouMessage,
         createdAt,
         updatedAt,
+        friendCount: friendsIds.length,
+        receivedFriendRequestsCount: receivedFriendRequestsIds.length,
+        sentFriendRequestsCount: sentFriendRequestsIds.length,
     }
 }

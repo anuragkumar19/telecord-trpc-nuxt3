@@ -19,10 +19,12 @@ import {
     getUser,
     searchUser,
     unblockUser,
+    updateAvatar,
 } from '../controllers/user'
 import {
     accountPrivacySchema,
     idOnlySchema,
+    publicIdOnlySchema,
     searchUserSchema,
     secondaryEmailSchema,
     updateBioSchema,
@@ -69,6 +71,10 @@ export const userRouter = router({
     updateUsername: protectedProcedure
         .input(updateUsernameSchema)
         .mutation(({ ctx, input }) => updateUsername(ctx.user, input)),
+
+    updateAvatar: protectedProcedure
+        .input(publicIdOnlySchema)
+        .mutation(({ ctx, input }) => updateAvatar(ctx.user.id, input)),
 
     addSecondaryEmail: protectedProcedure
         .input(secondaryEmailSchema)

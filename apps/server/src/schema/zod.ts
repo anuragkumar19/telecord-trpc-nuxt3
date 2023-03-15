@@ -1,5 +1,6 @@
 import { WhoCanSee, WhoCanSend } from '@telecord/db'
 import { z } from 'zod'
+import { UploadTypes } from '../constants'
 
 const zodString = (field: string) =>
     z.string({
@@ -118,13 +119,6 @@ export const accountPrivacySchema = z.object({
     whoCanSendYouMessage: whoCanSend,
 })
 
-export const createStatusSchema = z.object({
-    caption: zodString('caption')
-        .trim()
-        .max(500, { message: 'Caption cannot be longer than 500 characters' })
-        .optional(),
-})
-
 export const idOnlySchema = z.object({
     id: zodString('id').nonempty(),
 })
@@ -136,4 +130,20 @@ export const withPaginationSchema = z.object({
 
 export const searchUserSchema = withPaginationSchema.extend({
     query: zodString('query'),
+})
+export const getUploadCredentialsSchema = z.object({
+    type: z.enum(UploadTypes, { invalid_type_error: 'Invalid Value' }),
+})
+
+export const publicIdOnlySchema = z.object({
+    publicId: zodString('publicId').nonempty({
+        message: 'Public Id cannot be empty',
+    }),
+})
+
+export const createStatusSchema = publicIdOnlySchema.extend({
+    caption: zodString('caption')
+        .trim()
+        .max(500, { message: 'Caption cannot be longer than 500 characters' })
+        .optional(),
 })

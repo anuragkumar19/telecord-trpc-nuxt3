@@ -8,7 +8,9 @@ import {
     generateAuthTokens,
     hashPassword,
 } from '../utils/user'
+import { redis } from '../services/redis'
 import { ControllerError } from '../error'
+import { getForgotPasswordOtpKey, getRegisterOtpKey } from '../utils/redis'
 
 export const register = async ({
     email,
@@ -68,10 +70,34 @@ export const register = async ({
             data,
         })
     } else {
+        let noOfTimesOtpSent = Number(
+            await redis.get(getRegisterOtpKey(user.id))
+        )
+
+        if (!noOfTimesOtpSent) {
+            noOfTimesOtpSent = 0
+        }
+
+        if (
+            user.otp &&
+            user.otpExpiry &&
+            user.otpExpiry - Date.now() > (5 - noOfTimesOtpSent) * 60 * 100
+        ) {
+            throw new ControllerError({
+                code: 'TOO_MANY_REQUESTS',
+                message: 'Already sent OTP. Try in few moment.',
+            })
+        }
+
         user = await prisma.user.update({ where: { id: user.id }, data })
     }
 
-    await sendOtp(email, otp, 'VERIFY_EMAIL')
+    const p1 = sendOtp(email, otp, 'VERIFY_EMAIL')
+
+    await redis.incr(getRegisterOtpKey(user.id))
+    const p2 = redis.expire(getRegisterOtpKey(user.id), 5 * 60) // 5 minutes
+
+    await Promise.all([p1, p2])
 
     return {
         message: 'Otp sent to you email!',
@@ -136,10 +162,14 @@ export const verifyEmail = async ({
         })
     }
 
-    await prisma.user.update({
+    const p1 = prisma.user.update({
         where: { id: user.id },
         data: { isEmailVerified: true, otp: null, otpExpiry: null },
     })
+
+    const p2 = redis.del(getRegisterOtpKey(user.id))
+
+    await Promise.all([p1, p2])
 
     return {
         message: 'Email verified successfully',
@@ -169,6 +199,26 @@ export const forgotPassword = async ({ email }: { email: string }) => {
         })
     }
 
+    // Rate limit due to sending emails
+    let noOfTimesOtpSent = Number(
+        await redis.get(getForgotPasswordOtpKey(user.id))
+    )
+
+    if (!noOfTimesOtpSent) {
+        noOfTimesOtpSent = 0
+    }
+
+    if (
+        user.otp &&
+        user.otpExpiry &&
+        user.otpExpiry - Date.now() > (5 - noOfTimesOtpSent) * 60 * 100
+    ) {
+        throw new ControllerError({
+            code: 'TOO_MANY_REQUESTS',
+            message: 'Already sent OTP. Try in few moment.',
+        })
+    }
+
     const otp = genOtp()
 
     const hashedOtp = crypto
@@ -178,12 +228,17 @@ export const forgotPassword = async ({ email }: { email: string }) => {
 
     const otpExpiry = Date.now() + 5 * 60 * 1000 // 5 minutes
 
-    await prisma.user.update({
+    const p1 = prisma.user.update({
         where: { id: user.id },
         data: { otp: hashedOtp, otpExpiry },
     })
 
-    await sendOtp(email, otp, 'RESET_PASSWORD')
+    const p2 = sendOtp(email, otp, 'RESET_PASSWORD')
+
+    await redis.incr(getForgotPasswordOtpKey(user.id))
+    const p3 = redis.expire(getForgotPasswordOtpKey(user.id), 5 * 60) // 5 minutes
+
+    await Promise.all([p1, p2, p3])
 
     return {
         message: 'Otp sent to you email!',
@@ -250,10 +305,14 @@ export const resetPassword = async ({
         })
     }
 
-    await prisma.user.update({
+    const p1 = prisma.user.update({
         where: { id: user.id },
         data: { password: hashPassword(password), otp: null, otpExpiry: null },
     })
+
+    const p2 = redis.del(getForgotPasswordOtpKey(user.id))
+
+    await Promise.all([p1, p2])
 
     return {
         message: 'Password reset successfully',
@@ -310,7 +369,7 @@ export const refreshToken = async ({
         const payload = jwt.verify(
             refreshToken,
             process.env.REFRESH_TOKEN_SECRET!
-        ) as JwtPayload
+        ) as JwtPayload // We know
 
         if (payload.type !== 'refresh') {
             throw new ControllerError({
@@ -341,3 +400,5 @@ export const refreshToken = async ({
         })
     }
 }
+
+// TODO: Sudo mode

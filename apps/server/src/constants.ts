@@ -6,6 +6,9 @@ export type SendOtpType =
     | 'RESET_PASSWORD'
     | 'VERIFY_SECONDARY_EMAIL'
 
+export const UploadTypes = ['IMAGE', 'VIDEO', 'OTHER'] as const
+export type UploadType = (typeof UploadTypes)[number]
+
 export const EmailSubject = {
     VerifyEmail: 'Verify your email to activate your account',
     ResetPassword: 'OTP for password reset request',
@@ -19,3 +22,17 @@ export const EmailText = {
         'A password request is received for this account. Use this OTP is to continue.',
     VerifySecondaryEmail: 'OTP for verification of secondary email.',
 }
+
+export interface TempUpload {
+    authorId: string
+    publicId: string
+    type: UploadType
+    secret: string
+    uploaded: boolean
+}
+
+export const folderName = `${__COMPANY_NAME__}-${
+    process.env.NODE_ENV! || 'development'
+}`
+
+export const removeImageTopic = 'removeImage'

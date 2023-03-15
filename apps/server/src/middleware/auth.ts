@@ -42,19 +42,3 @@ export const getUserFromToken = async (token?: string) => {
         })
     }
 }
-
-  
-
-// export const verifyPassword: (schema?: Schema) => Handler =
-//     (schema) => (req, res, next) => {
-//         validate(schema ? schema : passwordVerifySchema)(req, res, () => {
-//             const { password } = req.body
-
-//             if (req.user!.comparePassword(password)) {
-//                 return next()
-//             }
-
-//             res.status(401)
-//             throw new Error('Invalid password')
-//         })
-//     }
