@@ -1,5 +1,5 @@
 import { getUploadCredentials } from '../controllers/upload'
-import { getUploadCredentialsSchema } from 'src/schema/zod'
+import { getUploadCredentialsSchema } from '../schema/zod'
 import { protectedProcedure, router } from '../trpc'
 
 export const uploadRouter = router({
