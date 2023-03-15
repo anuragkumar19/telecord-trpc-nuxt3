@@ -100,7 +100,7 @@ export const register = async ({
     await Promise.all([p1, p2])
 
     return {
-        message: 'Otp sent to you email!',
+        message: 'Otp sent to your email!',
     }
 }
 
