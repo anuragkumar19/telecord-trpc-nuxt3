@@ -116,7 +116,7 @@ export const getStatus = async <
     const status = await prisma.status.findFirst({
         where: {
             id: statusId,
-            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 10000) },
+            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
         },
         include: {
             author: true,
@@ -166,7 +166,7 @@ export const getMyStatus = async <
     const status = await prisma.status.findMany({
         where: {
             authorId: user.id,
-            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 10000) },
+            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
         },
         include: {
             author: true,
@@ -196,7 +196,7 @@ export const getStatusOfAUser = async <
     const status = await prisma.status.findMany({
         where: {
             authorId,
-            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 10000) },
+            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
         },
         include: { author: true },
         orderBy: { createdAt: 'desc' },
@@ -236,7 +236,7 @@ export const getStatusOfFriends = async <
             authorId: {
                 in: user.friendsIds,
             },
-            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 10000) },
+            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
         },
         orderBy: {
             createdAt: 'desc',
@@ -281,7 +281,7 @@ export const markStatusSeen = async <
     const status = await prisma.status.findFirst({
         where: {
             id: statusId,
-            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 10000) },
+            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
         },
         include: {
             author: true,

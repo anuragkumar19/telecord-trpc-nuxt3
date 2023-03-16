@@ -479,7 +479,7 @@ export const getOtpForSecondaryEmail = async <
         user.secondaryEmailOtp &&
         user.secondaryEmailOtpExpiry &&
         user.secondaryEmailOtpExpiry - Date.now() >
-            (5 - noOfTimesOtpSent) * 60 * 100
+            (5 - noOfTimesOtpSent) * 60 * 1000
     ) {
         throw new ControllerError({
             code: 'TOO_MANY_REQUESTS',

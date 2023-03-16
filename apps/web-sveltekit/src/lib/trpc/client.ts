@@ -26,14 +26,18 @@ import type { AppRouter } from '@telecord/server/src/router';
 import { createTRPCProxyClient, httpBatchLink, TRPCClientError } from '@trpc/client';
 import superjson from 'superjson';
 
-export const client = createTRPCProxyClient<AppRouter>({
-	links: [
-		httpBatchLink({
-			url: `${PUBLIC_SERVER_URL}/trpc`
-		})
-	],
-	transformer: superjson
-});
+export const client = (token?: string) =>
+	createTRPCProxyClient<AppRouter>({
+		links: [
+			httpBatchLink({
+				url: `${PUBLIC_SERVER_URL}/trpc`,
+				headers: {
+					Authorization: `Bearer ${token}`
+				}
+			})
+		],
+		transformer: superjson
+	});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const getMessageFromError = (err: any) => {

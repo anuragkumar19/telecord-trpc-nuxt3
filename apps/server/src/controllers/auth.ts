@@ -81,7 +81,7 @@ export const register = async ({
         if (
             user.otp &&
             user.otpExpiry &&
-            user.otpExpiry - Date.now() > (5 - noOfTimesOtpSent) * 60 * 100
+            user.otpExpiry - Date.now() > (5 - noOfTimesOtpSent) * 60 * 1000
         ) {
             throw new ControllerError({
                 code: 'TOO_MANY_REQUESTS',
@@ -211,7 +211,7 @@ export const forgotPassword = async ({ email }: { email: string }) => {
     if (
         user.otp &&
         user.otpExpiry &&
-        user.otpExpiry - Date.now() > (5 - noOfTimesOtpSent) * 60 * 100
+        user.otpExpiry - Date.now() > (5 - noOfTimesOtpSent) * 60 * 1000
     ) {
         throw new ControllerError({
             code: 'TOO_MANY_REQUESTS',

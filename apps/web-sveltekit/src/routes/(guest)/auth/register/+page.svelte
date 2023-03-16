@@ -1,30 +1,46 @@
-<script>
+<script lang="ts">
 	import { Toast, toastStore } from '@skeletonlabs/skeleton';
 	import { client, getMessageFromError } from '$lib/trpc/client';
-	import { redirect } from '@sveltejs/kit';
 	import { goto } from '$app/navigation';
 
 	let name = '',
 		email = '',
 		username = '',
 		password = '';
+	let submitting = false;
 
 	const handleSignup = async () => {
 		try {
-			await client.auth.register.mutate({
+			submitting = true;
+
+			// const data = registerSchema.parse({
+			// 	name,
+			// 	email,
+			// 	username,
+			// 	password
+			// });
+
+			const data = {
 				name,
 				email,
 				username,
 				password
-			});
+			};
+
+			await client().auth.register.mutate(data);
+
+			sessionStorage.setItem('register_data', JSON.stringify(data));
 
 			goto('/auth/verify-otp');
 		} catch (err) {
 			const message = getMessageFromError(err);
 			toastStore.trigger({
 				message,
+				autohide: true,
 				background: 'variant-filled-error'
 			});
+		} finally {
+			submitting = false;
 		}
 	};
 </script>
@@ -76,7 +92,9 @@
 				bind:value={password}
 			/>
 		</label>
-		<button type="submit" class="btn variant-filled mt-4 w-full">Continue</button>
+		<button type="submit" class="btn variant-filled mt-4 w-full" disabled={submitting}
+			>{submitting ? 'Please wait...' : 'Continue'}</button
+		>
 	</form>
 	<p class="text-center mt-2">
 		<a href="/auth/login">Already have an account?</a>

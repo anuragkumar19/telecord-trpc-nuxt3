@@ -1,6 +1,8 @@
 import { WhoCanSee, WhoCanSend } from '@telecord/db'
-import { z } from 'zod'
+import { z, ZodError as _ZodError } from 'zod'
 import { UploadTypes } from '../constants'
+
+export const ZodError = _ZodError
 
 const zodString = (field: string) =>
     z.string({

@@ -3,7 +3,7 @@
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
-		"dev": "vite dev",
+		"dev": "vite dev --host",
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -37,6 +37,8 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@auth/core": "^0.5.1",
+		"@auth/sveltekit": "^0.3.0",
 		"@trpc/client": "^10.15.0",
 		"superjson": "^1.12.2",
 		"trpc-sveltekit": "^3.4.7"
