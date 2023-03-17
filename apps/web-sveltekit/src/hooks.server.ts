@@ -13,11 +13,11 @@ export const handle = (async ({ event, resolve }) => {
 				},
 				user: await fetchUser(event)
 			};
-			console.log(refreshToken, accessToken);
 			event.locals.auth = auth;
 		}
 	} catch (err) {
 		//.. eat 5-star do nothing
+		console.log(err);
 	}
 
 	return await resolve(event);

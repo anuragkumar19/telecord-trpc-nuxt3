@@ -37,10 +37,7 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"@auth/core": "^0.5.1",
-		"@auth/sveltekit": "^0.3.0",
 		"@trpc/client": "^10.15.0",
-		"superjson": "^1.12.2",
-		"trpc-sveltekit": "^3.4.7"
+		"superjson": "^1.12.2"
 	}
 }

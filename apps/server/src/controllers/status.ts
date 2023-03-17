@@ -19,23 +19,14 @@ export const createStatus = async <
     { caption, publicId }: { caption?: string; publicId: string }
 ) => {
     const key = getTempUploadKey(publicId)
-    const tempUploadStr = await redis.get(key)
+    const tempUpload = (await redis.get(key)) as TempUpload
 
-    if (typeof tempUploadStr !== 'string') {
-        throw new ControllerError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Something went wrong',
-        })
-    }
-
-    if (!tempUploadStr) {
+    if (!tempUpload) {
         throw new ControllerError({
             code: 'BAD_REQUEST',
             message: 'Avatar upload not found',
         })
     }
-
-    const tempUpload = JSON.parse(tempUploadStr) as TempUpload
 
     if (!tempUpload.uploaded) {
         throw new ControllerError({

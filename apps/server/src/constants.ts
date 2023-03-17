@@ -31,7 +31,7 @@ export interface TempUpload {
     uploaded: boolean
 }
 
-export const folderName = `${__COMPANY_NAME__}-${
+export const folderName = `${__COMPANY_NAME__.toLowerCase()}-${
     process.env.NODE_ENV! || 'development'
 }`
 

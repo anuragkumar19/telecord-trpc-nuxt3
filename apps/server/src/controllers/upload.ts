@@ -6,6 +6,7 @@ import {
     removeImageTopic,
     TempUpload,
     UploadType,
+    __PROD__,
 } from '../constants'
 import { redis } from '../services/redis'
 import { RouteHandlerMethod } from 'fastify'
@@ -56,18 +57,12 @@ export const uploadFile: RouteHandlerMethod<Http2SecureServer> = async (
 
     const key = getTempUploadKey(publicId)
 
-    const tempUploadStr = await redis.get(key)
+    const tempUpload = (await redis.get(key)) as TempUpload
 
-    if (typeof tempUploadStr !== 'string') {
-        throw new Error('Something went wrong')
-    }
-
-    if (!tempUploadStr) {
+    if (!tempUpload) {
         reply.status(401)
         throw new Error('Unauthorized')
     }
-
-    const tempUpload = JSON.parse(tempUploadStr) as TempUpload
 
     if (tempUpload.uploaded) {
         reply.status(400)
@@ -119,7 +114,9 @@ export const uploadFile: RouteHandlerMethod<Http2SecureServer> = async (
     await redis.expire(key, 2 * 60 * 60) // 2 hour
 
     await client.publishJSON({
-        url: `${process.env.SERVER_URL!}/api/q/delete-upload`,
+        url: `${
+            __PROD__ ? process.env.PUBLIC_SERVER_URL! : process.env.FAKE_URL
+        }/api/q/delete-upload`,
         delay: 60 * 60, // 1 hour
         body: tempUpload,
         topic: removeImageTopic,

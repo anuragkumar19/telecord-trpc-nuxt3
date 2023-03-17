@@ -16,6 +16,7 @@ import { createContext } from './router/context'
 const PORT = Number(process.env.SERVER_PORT) || 5000
 
 export const server = fastify({
+    logger: !__PROD__,
     http2: true,
     https: {
         allowHTTP1: true, // fallback support for HTTP1

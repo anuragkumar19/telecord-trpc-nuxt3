@@ -1,6 +1,7 @@
 import { User, WhoCanSee, WhoCanSend } from '@telecord/db'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { generateCloudinaryImageLinks } from './upload'
 
 export const hashPassword = (password: string) => {
     const salt = bcrypt.genSaltSync(10)
@@ -95,7 +96,7 @@ export interface MappedUser {
     id: string
     name: string
     username: string
-    avatar: string
+    avatar: ReturnType<typeof generateCloudinaryImageLinks>
     bio?: string
     isSelf: boolean
     isFriend: boolean
@@ -136,7 +137,7 @@ export const mapUser = <
         id: he.id,
         name: he.name,
         username: he.username,
-        avatar: process.env.DEFAULT_AVATAR!,
+        avatar: generateCloudinaryImageLinks(process.env.DEFAULT_AVATAR!),
         bio: '',
         isFriend: false,
         isInFriendRequest: false,
@@ -151,7 +152,7 @@ export const mapUser = <
         he.whoCanSeeAvatar === 'EVERYONE' ||
         (he.whoCanSeeAvatar === 'FRIENDS' && isFriend(me, he))
     ) {
-        sendableUser.avatar = he.avatar
+        sendableUser.avatar = generateCloudinaryImageLinks(he.avatar)
     }
 
     if (
@@ -206,7 +207,7 @@ export const mapMe = ({
         id,
         name,
         username,
-        avatar,
+        avatar: generateCloudinaryImageLinks(avatar),
         bio,
         email,
         isEmailVerified,

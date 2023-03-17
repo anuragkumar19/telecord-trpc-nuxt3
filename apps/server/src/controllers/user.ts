@@ -278,16 +278,14 @@ export const updateAvatar = async (
     { publicId }: { publicId: string }
 ) => {
     const key = getTempUploadKey(publicId)
-    const tempUploadStr = (await redis.get(key)) as string
+    const tempUpload = (await redis.get(key)) as TempUpload
 
-    if (!tempUploadStr) {
+    if (!tempUpload) {
         throw new ControllerError({
             code: 'BAD_REQUEST',
             message: 'Avatar upload not found',
         })
     }
-
-    const tempUpload = JSON.parse(tempUploadStr) as TempUpload
 
     if (!tempUpload.uploaded) {
         throw new ControllerError({

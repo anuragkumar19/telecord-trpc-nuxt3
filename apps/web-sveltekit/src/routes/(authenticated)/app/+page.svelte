@@ -1,1 +1,5 @@
-<h1>App</h1>
+<script lang="ts">
+	import type { PageData } from './$types';
+
+	export let data: PageData;
+</script>

@@ -1,38 +1,31 @@
-// import { PUBLIC_SERVER_URL } from '$env/static/public';
-// import type { AppRouter } from '@telecord/server/src/router';
-// import superjson from 'superjson';
-// import { createTRPCClient } from 'trpc-sveltekit';
-
-// let browserClient: ReturnType<typeof createTRPCClient<AppRouter>>;
-
-// export function trpc<T extends { fetch: typeof window.fetch }>(init?: T) {
-// 	const isBrowser = typeof window !== 'undefined';
-// 	if (isBrowser && browserClient) return browserClient;
-// 	const client = createTRPCClient<AppRouter>({
-// 		transformer: superjson,
-// 		init: {
-// 			fetch: init?.fetch,
-// 			url: {
-// 				origin: PUBLIC_SERVER_URL || 'https://22e7-2409-4064-4db3-d085-5076-cb4f-f92b-91b6.ngrok.io'
-// 			}
-// 		}
-// 	});
-// 	if (isBrowser) browserClient = client;
-// 	return client;
-// }
-
 import { PUBLIC_SERVER_URL } from '$env/static/public';
+import type { Auth } from '$lib/auth/store';
+import { checkToken } from '$lib/auth/token';
 import type { AppRouter } from '@telecord/server/src/router';
 import { createTRPCProxyClient, httpBatchLink, TRPCClientError } from '@trpc/client';
 import superjson from 'superjson';
 
-export const client = (token?: string) =>
+export const client = (auth?: Auth | string) =>
 	createTRPCProxyClient<AppRouter>({
 		links: [
 			httpBatchLink({
 				url: `${PUBLIC_SERVER_URL}/trpc`,
-				headers: {
-					Authorization: `Bearer ${token}`
+				headers: async () => {
+					if (auth && typeof auth !== 'string') {
+						const token = await checkToken(auth);
+
+						return {
+							Authorization: `Bearer ${token}`
+						};
+					}
+
+					if (auth) {
+						return {
+							Authorization: `Bearer ${auth}`
+						};
+					}
+
+					return {};
 				}
 			})
 		],
