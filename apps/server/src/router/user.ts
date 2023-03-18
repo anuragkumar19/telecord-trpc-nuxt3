@@ -49,7 +49,7 @@ export const userRouter = router({
     searchUser: protectedProcedure
         .input(searchUserSchema)
         .query(({ ctx, input }) =>
-            searchUser(ctx.user, input.limit, input.cursor, input.query)
+            searchUser(ctx.user, input.limit, input.query, input.cursor)
         ),
 
     updateName: protectedProcedure

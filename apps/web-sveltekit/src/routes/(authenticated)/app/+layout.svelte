@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './style.postcss';
+	import { auth } from '$lib/auth/store';
 	import { page } from '$app/stores';
 	import { AppBar, AppShell, Avatar, Drawer, drawerStore } from '@skeletonlabs/skeleton';
 
@@ -38,7 +39,9 @@
 					</div>
 				</svelte:fragment>
 				<svelte:fragment slot="trail">
-					<a href="/app/profile"><Avatar src="https://i.pravatar.cc/?img=69" width="w-8" /></a>
+					<a href={`/app/user/${$auth?.user.username}`}
+						><Avatar src="https://i.pravatar.cc/?img=69" width="w-8" /></a
+					>
 				</svelte:fragment>
 			</AppBar>
 		</svelte:fragment>

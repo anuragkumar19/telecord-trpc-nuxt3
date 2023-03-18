@@ -62,24 +62,31 @@ model User {
   friends     User[]   @relation("Friends", fields: [friendsIds], references: [id])
   friendOfIds String[] @db.ObjectId
   friendOf    User[]   @relation("Friends", fields: [friendOfIds], references: [id])
-  status      status[] @relation("statusAuthorUser")
+  status      Status[] @relation("statusAuthorUser")
 
-  seenStatusIds String[] @ignore @db.ObjectId
-  seenStatus    status[] @relation("statusSeenByUser", fields: [seenStatusIds], references: [id]) @ignore
+  chatsIds String[] @db.ObjectId
+  Chats    Chat[]   @relation("ChatMemberUser", fields: [chatsIds], references: [id])
+
+  seenStatusIds  String[]   @ignore @db.ObjectId
+  seenStatus     Status[]   @relation("statusSeenByUser", fields: [seenStatusIds], references: [id]) @ignore
+  seenMessageIds String[]   @ignore @db.ObjectId
+  seenMessage    Message[]  @relation("MessageSeenByUser", fields: [seenStatusIds], references: [id]) @ignore
+  adminOfChatIds String[]   @ignore @db.ObjectId
+  adminOfChats   Chat[]     @relation("ChatAdminUser", fields: [adminOfChatIds], references: [id]) @ignore
+  messagesIds    String[]   @db.ObjectId
+  messages       Message[]  @relation("MessageAuthorUser")
+  reactionIds    String[]   @ignore @db.ObjectId
+  reactions      Reaction[] @relation("ReactionAuthorUser") @ignore
 
   @@map("users")
 }
-
-// model messages {
-//   id String @id @default(auto()) @map("_id") @db.ObjectId
-// }
 
 enum StatusMediaType {
   IMAGE
   VIDEO
 }
 
-model status {
+model Status {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt DateTime @default(now()) @db.Date
   updatedAt DateTime @updatedAt @db.Date
@@ -94,12 +101,79 @@ model status {
   authorId String @db.ObjectId
   author   User   @relation("statusAuthorUser", fields: [authorId], references: [id])
 
+  replies Message[] @relation("StatusMessage")
+
   @@index([createdAt], map: "createdAt_1")
   @@map("status")
 }
 
-// model threads {
-//   id         String @id @default(auto()) @map("_id") @db.ObjectId
-//   /// Field referred in an index, but found no data to define the type.
-//   identifier Json?  @unique(map: "identifier_1")
-// }
+enum MediaType {
+  IMAGE
+  VIDEO
+  OTHER
+}
+
+model Reaction {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now()) @db.Date
+  updatedAt DateTime @updatedAt @db.Date
+
+  emoji String
+
+  authorId String @db.ObjectId
+  author   User   @relation("ReactionAuthorUser", fields: [authorId], references: [id])
+
+  messageId String  @db.ObjectId
+  message   Message @relation("ReactionMessage", fields: [messageId], references: [id])
+
+  @@map("reactions")
+}
+
+model Message {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now()) @db.Date
+  updatedAt DateTime @updatedAt @db.Date
+
+  authorId String @db.ObjectId
+  author   User   @relation("MessageAuthorUser", fields: [authorId], references: [id])
+
+  text      String     @default("")
+  media     String?
+  mediaType MediaType?
+
+  seenByIds String[] @db.ObjectId
+  seenBy    User[]   @relation("MessageSeenByUser", fields: [seenByIds], references: [id])
+
+  reactionsIds String[]   @db.ObjectId
+  reactions    Reaction[] @relation("ReactionMessage")
+
+  forwarded Boolean @default(false)
+  chatId    String  @db.ObjectId
+  Chat      Chat    @relation("ChatMessage", fields: [chatId], references: [id])
+
+  statusId String? @db.ObjectId
+  status   Status? @relation("StatusMessage", fields: [statusId], references: [id])
+
+  @@map("messages")
+}
+
+model Chat {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now()) @db.Date
+  updatedAt DateTime @updatedAt @db.Date
+
+  membersIds String[] @db.ObjectId
+  members    User[]   @relation("ChatMemberUser", fields: [membersIds], references: [id])
+  adminsIds  String[] @db.ObjectId
+  admins     User[]   @relation("ChatAdminUser", fields: [adminsIds], references: [id])
+
+  isPrivate Boolean
+
+  title       String  @default("Chat Room")
+  description String?
+  avatar      String?
+
+  messages Message[] @relation("ChatMessage")
+
+  @@map("chats")
+}

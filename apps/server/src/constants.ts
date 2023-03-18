@@ -32,7 +32,7 @@ export interface TempUpload {
 }
 
 export const folderName = `${__COMPANY_NAME__.toLowerCase()}-${
-    process.env.NODE_ENV! || 'development'
+    process.env.NODE_ENV || 'development'
 }`
 
 export const removeImageTopic = 'removeImage'

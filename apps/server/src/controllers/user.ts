@@ -142,8 +142,8 @@ export const searchUser = async <
 >(
     user: U,
     limit = 10,
-    cursor: string,
-    query: string
+    query: string,
+    cursor?: string
 ) => {
     if (query === '') {
         return {

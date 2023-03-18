@@ -126,7 +126,7 @@ export const idOnlySchema = z.object({
 })
 
 export const withPaginationSchema = z.object({
-    cursor: zodString('cursor').nonempty(),
+    cursor: zodString('cursor').optional(),
     limit: z.number(),
 })
 
