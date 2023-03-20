@@ -21,10 +21,10 @@ export const server = fastify({
     https: {
         allowHTTP1: true, // fallback support for HTTP1
         key: fs.readFileSync(
-            path.join(__dirname, '..', 'https', 'fastify.key')
+            path.join(__dirname, '..', '..', '..', 'fastify.key')
         ),
         cert: fs.readFileSync(
-            path.join(__dirname, '..', 'https', 'fastify.cert')
+            path.join(__dirname, '..', '..', '..', 'fastify.cert')
         ),
     },
 })
