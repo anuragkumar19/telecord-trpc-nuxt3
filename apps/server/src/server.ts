@@ -1,6 +1,4 @@
 import 'colors'
-import fs from 'fs'
-import path from 'path'
 import fastify from 'fastify'
 import cors from '@fastify/cors'
 import ws from '@fastify/websocket'
@@ -20,12 +18,6 @@ export const server = fastify({
     http2: true,
     https: {
         allowHTTP1: true, // fallback support for HTTP1
-        key: fs.readFileSync(
-            path.join(__dirname, '..', '..', '..', 'fastify.key')
-        ),
-        cert: fs.readFileSync(
-            path.join(__dirname, '..', '..', '..', 'fastify.cert')
-        ),
     },
 })
 
