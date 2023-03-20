@@ -15,10 +15,6 @@ const PORT = Number(process.env.PORT) || 5000
 
 export const server = fastify({
     logger: !__PROD__,
-    http2: true,
-    https: {
-        allowHTTP1: true, // fallback support for HTTP1
-    },
 })
 
 server.register(cors, {

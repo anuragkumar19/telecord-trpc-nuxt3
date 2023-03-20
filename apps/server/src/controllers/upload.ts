@@ -10,7 +10,7 @@ import {
 } from '../constants'
 import { redis } from '../services/redis'
 import { RouteHandlerMethod } from 'fastify'
-import { Http2SecureServer } from 'http2'
+import { Server } from 'http'
 import { client, receiver } from '../services/qstash'
 
 export const getUploadCredentials = async (
@@ -46,7 +46,7 @@ export const getUploadCredentials = async (
 }
 
 // Specific Fastify controller
-export const uploadFile: RouteHandlerMethod<Http2SecureServer> = async (
+export const uploadFile: RouteHandlerMethod<Server> = async (
     request,
     reply
 ) => {
@@ -129,9 +129,10 @@ export const uploadFile: RouteHandlerMethod<Http2SecureServer> = async (
     )
 }
 
-export const handleQstashUploadDeletion: RouteHandlerMethod<
-    Http2SecureServer
-> = async (request, reply) => {
+export const handleQstashUploadDeletion: RouteHandlerMethod<Server> = async (
+    request,
+    reply
+) => {
     const signature = request.headers['Upstash-Signature']
     const body = request.rawBody
 
