@@ -13,7 +13,7 @@ import { handleQstashUploadDeletion, uploadFile } from './controllers/upload'
 import { appRouter } from './router'
 import { createContext } from './router/context'
 
-const PORT = Number(process.env.SERVER_PORT) || 5000
+const PORT = Number(process.env.PORT) || 5000
 
 export const server = fastify({
     logger: !__PROD__,

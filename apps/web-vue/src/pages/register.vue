@@ -8,29 +8,43 @@
                         <label class="label">
                             <span class="label-text">Name</span>
                         </label>
-                        <input type="email" placeholder="John deo" autocomplete="name" class="input input-bordered w-full"
-                            v-model="name" />
+                        <input type="text" placeholder="John deo" autocomplete="name" class="input input-bordered w-full"
+                            :class="errors.name ? 'input-error' : ''" v-model="name" />
+                        <label class="label" v-if="errors.name">
+                            <span class="label-text-alt text-error">{{ errors.name }}</span>
+                        </label>
                     </div>
                     <div class="form-control w-full">
                         <label class="label">
                             <span class="label-text">Email</span>
                         </label>
-                        <input type="email" placeholder="john@example.com" autocomplete="email"
-                            class="input input-bordered w-full" v-model="email" />
+                        <input type="text" placeholder="john@example.com" autocomplete="email"
+                            class="input input-bordered w-full" :class="errors.email ? 'input-error' : ''"
+                            v-model="email" />
+                        <label class="label" v-if="errors.email">
+                            <span class="label-text-alt text-error">{{ errors.email }}</span>
+                        </label>
                     </div>
                     <div class="form-control w-full">
                         <label class="label">
                             <span class="label-text">Username</span>
                         </label>
-                        <input type="email" placeholder="john_deo" autocomplete="username"
-                            class="input input-bordered w-full" v-model="username" />
+                        <input type="text" placeholder="john_deo" autocomplete="off" class="input input-bordered w-full"
+                            :class="errors.username ? 'input-error' : ''" v-model="username" />
+                        <label class="label" v-if="errors.username">
+                            <span class="label-text-alt text-error">{{ errors.username }}</span>
+                        </label>
                     </div>
                     <div class="form-control w-full">
                         <label class="label">
                             <span class="label-text">Password</span>
                         </label>
                         <input type="password" placeholder="*********" autocomplete="new-password"
-                            class="input input-bordered w-full" v-model="password" />
+                            class="input input-bordered w-full" :class="errors.password ? 'input-error' : ''"
+                            v-model="password" />
+                        <label class="label" v-if="errors.password">
+                            <span class="label-text-alt text-error">{{ errors.password }}</span>
+                        </label>
                     </div>
                     <div class="text-center">
                         <button type="submit" class="btn variant-filled mt-4 w-full" :class="submitting ? 'loading' : ''"
@@ -47,9 +61,11 @@
     </AuthLayout>
 </template>
 <script setup lang="ts">
+import { trpc } from '@/lib/trpc'
+import { registerSchema, ZodError } from '@telecord/server/src/schema/zod'
 import AuthLayout from '@/layouts/AuthLayout.vue'
-import { ref } from 'vue';
-
+import { reactive, ref } from 'vue';
+import { useToast } from 'vue-toast-notification';
 
 const name = ref('')
 const email = ref('')
@@ -57,7 +73,44 @@ const username = ref('')
 const password = ref('')
 const submitting = ref(false)
 
-const handleRegister = () => {
+const initialErrors = {
+    name: '',
+    email: '',
+    username: "",
+    password: ""
+}
+
+let errors = reactive(initialErrors)
+
+const $toast = useToast();
+
+const handleRegister = async () => {
+    try {
+        submitting.value = true
+        const data = registerSchema.parse({
+            name: name.value,
+            email: email.value,
+            username: username.value,
+            password: password.value,
+        })
+
+        errors = initialErrors
+
+        const { message } = await trpc.auth.register.mutate(data)
+
+        $toast.success(message)
+    } catch (err) {
+        if (err instanceof ZodError) {
+            const fieldErrors = err.flatten().fieldErrors
+
+            Object.keys(fieldErrors).forEach(key => {
+                const message = !fieldErrors[key] ? '' : fieldErrors[key]![0]
+                errors[key] = message
+            })
+        }
+    } finally {
+        submitting.value = false
+    }
 
 }
 </script>

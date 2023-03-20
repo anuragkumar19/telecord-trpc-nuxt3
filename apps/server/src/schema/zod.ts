@@ -1,8 +1,20 @@
-import { WhoCanSee, WhoCanSend } from '@telecord/db'
+// import { WhoCanSee, WhoCanSend } from '@telecord/db'
 import { z, ZodError as _ZodError } from 'zod'
 import { UploadTypes } from '../constants'
 
 export const ZodError = _ZodError
+
+// fix:Importing from @telecord/db is giving error in client side
+enum WhoCanSee {
+    EVERYONE = 'EVERYONE',
+    FRIENDS = 'FRIENDS',
+    NOBODY = 'NOBODY',
+}
+
+enum WhoCanSend {
+    EVERYONE = 'EVERYONE',
+    FRIENDS = 'FRIENDS',
+}
 
 const zodString = (field: string) =>
     z.string({
